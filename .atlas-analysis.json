@@ -1,0 +1,131 @@
+{
+  "projectType": "saas",
+  "projectName": "Klaus",
+  "projectDescription": "Voice-powered research assistant for physical books and papers with vision-grounded Q&A",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "requirements"
+            ]
+          },
+          {
+            "group": "Setup & Installation",
+            "pages": [
+              "installation/macos",
+              "installation/windows",
+              "installation/from-source",
+              "setup/camera-setup",
+              "setup/api-keys",
+              "setup/first-run"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "usage/overview",
+              "usage/voice-modes",
+              "usage/asking-questions",
+              "usage/obsidian-integration",
+              "usage/sessions"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "config/overview",
+              "config/hotkeys",
+              "config/voice-settings",
+              "config/camera-settings",
+              "config/advanced"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/data-flow",
+              "architecture/modules",
+              "architecture/query-routing"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/common-issues",
+              "troubleshooting/macos-permissions",
+              "troubleshooting/camera-issues",
+              "troubleshooting/audio-issues"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Modules",
+            "pages": [
+              "api/brain",
+              "api/audio",
+              "api/camera",
+              "api/config"
+            ]
+          },
+          {
+            "group": "Services",
+            "pages": [
+              "api/stt",
+              "api/tts",
+              "api/search",
+              "api/notes",
+              "api/memory"
+            ]
+          },
+          {
+            "group": "UI Components",
+            "pages": [
+              "api/main-window",
+              "api/chat-widget",
+              "api/camera-widget",
+              "api/settings"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Vision-grounded Q&A with camera page capture",
+    "Voice-activated and push-to-talk input modes",
+    "Local speech-to-text with Moonshine",
+    "Streamed text-to-speech output",
+    "Automatic web search integration",
+    "Obsidian notes integration",
+    "Smart query routing with context optimization",
+    "Cross-platform (macOS and Windows)"
+  ],
+  "publicApiSurface": [
+    "Brain.ask()",
+    "Brain.decide_route()",
+    "VoiceActivatedRecorder",
+    "PushToTalkRecorder",
+    "CameraCapture",
+    "TextToSpeech.speak()",
+    "MoonshineSTT.transcribe()",
+    "WebSearch.search()",
+    "NotesManager.save_note()",
+    "Memory.save_exchange()",
+    "QueryRouter.route()"
+  ]
+}
