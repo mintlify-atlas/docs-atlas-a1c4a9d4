@@ -125,6 +125,20 @@ def save_api_keys(anthropic: str, openai: str, tavily: str) -> None:
 
 **Location:** config.py:752-779
 
+### clear_api_key()
+
+Remove a stored API key from Keychain/config.
+
+```python
+def clear_api_key(slug: str) -> None:
+```
+
+<ParamField path="slug" type="str" required>
+  API key identifier: "anthropic", "openai", or "tavily"
+</ParamField>
+
+**Location:** config.py:747-749
+
 ### get_api_key_sources()
 
 Get the source of each API key ("keychain", "env", "config", or "missing").
@@ -159,6 +173,20 @@ def set_camera_index(index: int, persist: bool = True) -> None:
 
 **Location:** config.py:804-809
 
+### save_camera_index()
+
+Persist camera index to config.toml without updating runtime variable.
+
+```python
+def save_camera_index(index: int) -> None:
+```
+
+<ParamField path="index" type="int" required>
+  Camera device index to save
+</ParamField>
+
+**Location:** config.py:812-814
+
 ### set_mic_index()
 
 Update the active microphone index and optionally persist it.
@@ -176,6 +204,20 @@ def set_mic_index(index: int, persist: bool = True) -> None:
 </ParamField>
 
 **Location:** config.py:817-822
+
+### save_mic_index()
+
+Persist microphone index to config.toml without updating runtime variable.
+
+```python
+def save_mic_index(index: int) -> None:
+```
+
+<ParamField path="index" type="int" required>
+  Microphone device index to save (-1 for system default)
+</ParamField>
+
+**Location:** config.py:825-827
 
 ## Profile Settings
 
