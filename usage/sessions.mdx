@@ -1,0 +1,312 @@
+---
+title: Managing Sessions
+description: Organizing your research conversations with Klaus
+---
+
+Every conversation with Klaus lives in a **session**. Sessions let you organize your research by topic, paper, or day, and Klaus remembers the conversation history within each session.
+
+## What Is a Session?
+
+A session is a container for a conversation thread with Klaus. Each session has:
+
+- A **title** (e.g., "Complexity Science - March 3rd" or "Anderson Paper Notes")
+- A **conversation history** (all your questions and Klaus's answers)
+- A **notes file** (optional, for Obsidian integration)
+- A **timestamp** (created and last updated)
+
+Klaus uses sessions to provide context-aware answers. When you ask a follow-up question, Klaus looks at the recent exchanges in the current session to understand what you're referring to.
+
+## The Session Sidebar
+
+The left sidebar shows all your sessions, sorted by most recently updated.
+
+- **Active session** is highlighted in the accent color
+- **Session title** shows the name you gave it (or "Untitled Session" by default)
+- **Exchange count** shows how many Q&A pairs are in that session (e.g., "5 Q&A")
+- **Timestamp** shows when the session was last updated (e.g., "2 hours ago", "Yesterday", "Mar 3")
+
+## Creating a New Session
+
+<Steps>
+  <Step title="Click the '+' button">
+    The '+' button is at the top of the session sidebar.
+  </Step>
+  
+  <Step title="Enter a session title">
+    A dialog asks for a title. Be descriptive - you'll see this in the sidebar.
+  </Step>
+  
+  <Step title="Click OK">
+    Klaus creates the session, clears the chat area, and makes the new session active.
+  </Step>
+</Steps>
+
+**Example titles:**
+
+- "Complexity Science - March 3rd"
+- "Anderson 'More is Different' Paper"
+- "Thermodynamics Review"
+- "Reading Notes - Week of March 3rd"
+
+<Tip>
+  Create a new session for each paper, book chapter, or study topic. This keeps your conversation history organized and makes it easier to review later.
+</Tip>
+
+## Switching Sessions
+
+Click any session in the sidebar to switch to it. Klaus:
+
+- Loads the conversation history for that session
+- Clears the current session's in-memory context
+- Sets the active notes file (if one was set for that session)
+- Updates the status bar to show the new session's exchange count
+
+The chat area updates to show all the exchanges from the selected session.
+
+## Renaming a Session
+
+<Steps>
+  <Step title="Right-click the session">
+    Right-click (or Ctrl+click on macOS) any session in the sidebar.
+  </Step>
+  
+  <Step title="Select 'Rename'">
+    A context menu appears with "Rename" and "Delete" options.
+  </Step>
+  
+  <Step title="Enter a new title">
+    A dialog asks for the new name.
+  </Step>
+  
+  <Step title="Click OK">
+    The session title updates immediately in the sidebar.
+  </Step>
+</Steps>
+
+You can rename any session, including the currently active one.
+
+## Deleting a Session
+
+<Steps>
+  <Step title="Right-click the session">
+    Right-click the session you want to delete.
+  </Step>
+  
+  <Step title="Select 'Delete'">
+    The context menu shows "Delete".
+  </Step>
+  
+  <Step title="Confirm deletion">
+    Klaus asks you to confirm. Click "Yes" to delete.
+  </Step>
+</Steps>
+
+**What gets deleted:**
+
+- The session's conversation history (all exchanges)
+- The session's metadata (title, timestamps)
+- The session's notes file reference (but NOT the actual notes file in your Obsidian vault)
+
+Klaus immediately deletes the session from the database (`~/.klaus/klaus.db`).
+
+<Warning>
+  Deletion is permanent. There is no undo. The conversation history is removed from Klaus's database, but any notes you saved to Obsidian remain in your vault.
+</Warning>
+
+### What Happens After Deletion
+
+If you delete the currently active session, Klaus:
+
+1. Creates a new "Untitled Session" if no other sessions exist
+2. Switches to the most recently updated session (if others exist)
+3. Clears the chat area and loads the new session's history
+
+## Session History and Context
+
+Klaus remembers your conversation history within the current session. This enables:
+
+### Follow-Up Questions
+
+```
+You: "What is emergence?"
+Klaus: "Properties that appear at higher levels but aren't present in 
+individual components."
+
+You: "Can you give an example from the page?"
+Klaus: [remembers the previous exchange and provides a relevant example]
+```
+
+### Pronoun Resolution
+
+```
+You: "What does the author mean by 'downward causation'?"
+Klaus: "Higher-level structures constrain lower-level behavior."
+
+You: "Is that controversial?"
+Klaus: [knows 'that' refers to downward causation]
+```
+
+### Context Accumulation
+
+As you ask more questions, Klaus builds up context about what you're reading and what you're interested in. This helps it give more relevant answers.
+
+### Context Limits
+
+Klaus does NOT send the entire session history with every question - that would be slow and expensive. Instead:
+
+- **Short-term context**: Klaus includes the last ~5 exchanges for follow-up questions
+- **Page-specific context**: Klaus includes the current page image for page-grounded questions
+- **Knowledge profile**: Klaus maintains a lightweight summary of topics you've discussed (stored in `klaus.db`)
+
+## Session Persistence
+
+Sessions are stored in `~/.klaus/klaus.db`, a SQLite database in your Klaus data directory.
+
+### What's Stored
+
+- **Session metadata**: ID, title, created timestamp, updated timestamp, notes file path
+- **Exchanges**: User question, Klaus's answer, timestamp, page image hash (not the full image)
+- **Search results**: Web searches Klaus performed during each exchange (stored as JSON)
+
+### What's NOT Stored
+
+- **Full page images**: Only a 16-character hash of each image is stored (for deduplication)
+- **Audio recordings**: Klaus doesn't keep the WAV files after transcription
+- **API keys**: Stored separately (Keychain on macOS, `config.toml` on Windows)
+
+### Resetting All Sessions
+
+To clear all sessions and start fresh:
+
+1. Close Klaus
+2. Delete `~/.klaus/klaus.db`
+3. Restart Klaus
+
+Klaus will create a new database and a fresh "Untitled Session" on launch.
+
+<Warning>
+  This deletes all conversation history permanently. Your config, API keys, and Obsidian notes are NOT affected.
+</Warning>
+
+## Session-Specific Notes Files
+
+When you set a notes file (see [Obsidian Integration](/usage/obsidian-integration)), Klaus associates it with the current session.
+
+**How it works:**
+
+1. You set a notes file: "Set notes to complexity science slash march 3rd"
+2. Klaus saves that path to the current session in `klaus.db`
+3. When you switch to a different session, Klaus clears the active notes file
+4. When you switch back to the original session, Klaus restores that session's notes file
+
+This lets you organize notes by session - each research thread can have its own markdown file.
+
+## Best Practices
+
+### 1. One Session Per Paper or Topic
+
+Create a new session for each distinct reading task:
+
+- Reading a new paper? New session.
+- Switching to a different chapter? New session.
+- Reviewing notes from last week? New session.
+
+This keeps conversations focused and makes history easier to review.
+
+### 2. Use Descriptive Titles
+
+Good titles make it easy to find past conversations:
+
+- **Good**: "Anderson 'More is Different' - Emergence"
+- **Good**: "Thermodynamics Chapter 5 - Entropy"
+- **Bad**: "Untitled Session"
+- **Bad**: "Session 1"
+
+### 3. Clean Up Old Sessions
+
+Delete sessions you no longer need. If you saved important notes to Obsidian, the ephemeral conversation history is less critical.
+
+### 4. Combine with Obsidian Notes
+
+Use sessions for your working conversation (questions, clarifications, tangents) and save key insights to Obsidian notes for long-term reference.
+
+### 5. Review Session History
+
+Scroll through a session's chat history to see what you asked and what Klaus answered. Click the replay button (▶) to hear any answer again.
+
+## Session Statistics
+
+The bottom-right corner of the status bar shows the current session's exchange count:
+
+- **"0 Q&A this session"** - no exchanges yet (new session)
+- **"5 Q&A this session"** - you've asked 5 questions and received 5 answers
+
+This gives you a sense of how deep the conversation has gone.
+
+## Technical Details
+
+### Database Schema
+
+Sessions are stored in the `sessions` table:
+
+```sql
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    notes_file TEXT
+);
+```
+
+Exchanges are stored in the `exchanges` table:
+
+```sql
+CREATE TABLE exchanges (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_text TEXT NOT NULL,
+    assistant_text TEXT NOT NULL,
+    image_hash TEXT,
+    searches_json TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+```
+
+### Session IDs
+
+Each session gets a UUID (e.g., `3f8e1a2b-4c5d-6e7f-8a9b-0c1d2e3f4a5b`). Klaus displays the first 8 characters in logs for brevity.
+
+### Timestamps
+
+Timestamps are stored as Unix epoch floats (seconds since 1970-01-01 00:00:00 UTC). The UI formats them as relative time ("2 hours ago") or dates ("Mar 3").
+
+## Troubleshooting
+
+### Sessions Not Appearing in Sidebar
+
+1. **Check the database** - does `~/.klaus/klaus.db` exist?
+2. **Check logs** - look for "Loaded X session(s)" at startup
+3. **Restart Klaus** - session list is loaded once at startup
+
+### Session History Not Loading
+
+1. **Check the session ID** - logs show the session ID when you switch sessions
+2. **Check the exchanges table** - use `sqlite3 ~/.klaus/klaus.db` and run `SELECT COUNT(*) FROM exchanges WHERE session_id = '<id>';`
+3. **Check for errors** - Klaus logs exchange-loading failures at `ERROR` level
+
+### "Untitled Session" Created on Every Launch
+
+This is normal - Klaus always ensures at least one session exists. Rename it or delete it after creating a properly titled session.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Obsidian Integration" icon="note" href="/usage/obsidian-integration">
+    Associate notes files with sessions
+  </Card>
+  <Card title="Overview" icon="book" href="/usage/overview">
+    Return to the usage overview
+  </Card>
+</CardGroup>

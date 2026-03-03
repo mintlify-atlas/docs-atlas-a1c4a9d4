@@ -1,0 +1,485 @@
+---
+title: "Settings & Setup"
+description: "SettingsDialog and SetupWizard for configuring API keys, devices, and user profile"
+---
+
+## Overview
+
+Klaus provides two configuration interfaces:
+
+- **SettingsDialog**: Tabbed dialog for post-setup adjustments (accessible from the main window gear button)
+- **SetupWizard**: First-run wizard for initial configuration
+
+Both use shared device enumeration, key validation, and microphone monitoring components.
+
+---
+
+## SettingsDialog
+
+**Module**: `klaus.ui.settings_dialog`
+
+**Inherits**: `QDialog` (PyQt6)
+
+### Class Definition
+
+```python
+class SettingsDialog(QDialog):
+    """Tabbed settings dialog accessible from the main window gear button."""
+```
+
+### Signals
+
+<ParamField path="camera_device_changed" type="pyqtSignal(int)">
+  Emitted when the user changes the camera device. Argument is the device index (or `-1` for no camera).
+</ParamField>
+
+<ParamField path="mic_device_changed" type="pyqtSignal(object)">
+  Emitted when the user changes the microphone device. Argument is the device index (int) or `None` for system default.
+</ParamField>
+
+### Constructor
+
+```python
+def __init__(
+    self,
+    parent: QWidget | None = None,
+    *,
+    active_camera_index: int | None = None,
+    active_mic_device: int | None = None,
+):
+```
+
+**Parameters**:
+- `active_camera_index`: Current camera device index (for pre-selecting in dropdown)
+- `active_mic_device`: Current mic device index (for pre-selecting in dropdown)
+
+**Window settings**:
+- Title: "Settings"
+- Minimum size: 640x380
+- Default size: 700x420
+
+### Tabs
+
+The dialog contains four tabs:
+
+1. **API Keys** (`_build_keys_tab()`)
+2. **Camera** (`_build_camera_tab()`)
+3. **Microphone** (`_build_mic_tab()`)
+4. **Profile** (`_build_profile_tab()`)
+
+### API Keys Tab
+
+Allows editing API keys for Anthropic, OpenAI, and Tavily.
+
+**Features**:
+- Password-masked input fields
+- Prefix validation (✓ or ✗ indicator)
+- "Clear" checkbox to remove stored keys
+- Source hints: "Stored in Apple Keychain", "Set by environment variable", etc.
+
+**Validation**:
+- Real-time validation using `validate_api_key()` from `klaus.ui.shared.key_validation`
+- Checks prefix and minimum length (does not make API calls)
+
+**Behavior**:
+- Entering a new key unchecks the "Clear" checkbox
+- Checking "Clear" empties the input field
+- Validation updates immediately on text change
+
+### Camera Tab
+
+Dropdown to select camera device.
+
+**Features**:
+- Enumerates cameras via `list_camera_devices()` from `klaus.device_catalog`
+- Labels formatted with `format_camera_label()` (shows friendly name on macOS via AVFoundation)
+- "No camera (audio only)" option (index `-1`)
+
+**Behavior**:
+- Changes apply immediately and persist to `config.toml`
+- Emits `camera_device_changed` signal on selection
+- Populates lazily when the tab is first shown
+
+**Methods**:
+
+```python
+def set_camera_selection(self, device_index: int) -> None:
+```
+
+Updates the dropdown to match the given device index (used for rollback on failed device switch).
+
+### Microphone Tab
+
+Dropdown to select microphone device with live volume meter.
+
+**Features**:
+- Enumerates mics via `list_input_devices()` from `klaus.device_catalog`
+- Labels formatted with `format_mic_label()` (shows default marker, disambiguates duplicates)
+- "System default microphone" option (index `-1`)
+- Live volume meter using `MicLevelMonitor` (updates at 50ms intervals)
+
+**Behavior**:
+- Changes apply immediately and persist to `config.toml`
+- Emits `mic_device_changed` signal on selection
+- Starts mic monitoring when the tab is shown; stops when the tab is hidden or dialog is closed
+- Populates lazily when the tab is first shown
+
+**Methods**:
+
+```python
+def set_mic_selection(self, device: int | None) -> None:
+```
+
+Updates the dropdown to match the given device index (used for rollback on failed device switch).
+
+### Profile Tab
+
+Edits user background and Obsidian vault path.
+
+**User Background**:
+- Multi-line text field (`QPlainTextEdit`)
+- Placeholder: "e.g. I'm a software engineer interested in physics and philosophy..."
+- Saved to `config.toml` as `user_background`
+
+**Obsidian Vault Path**:
+- Read-only text field with "Browse..." button
+- Opens native folder picker (`QFileDialog.getExistingDirectory`)
+- Help button (`?`) with tooltip and info dialog explaining usage
+- Saved to `config.toml` as `obsidian_vault_path`
+
+**Methods**:
+
+```python
+def _browse_vault_path(self) -> None:
+```
+
+Opens a folder picker and updates the path field.
+
+```python
+def _show_vault_help(self) -> None:
+```
+
+Displays an informational dialog about the Obsidian vault feature.
+
+### Save Button
+
+Bottom-right "Save" button writes:
+- New or cleared API keys (with validation)
+- User background
+- Obsidian vault path
+- Calls `config.reload()` to refresh runtime config
+- Closes the dialog (accepts)
+
+**Note**: Camera and mic changes apply immediately; Save is only for keys, profile, and vault.
+
+---
+
+## SetupWizard
+
+**Module**: `klaus.ui.setup_wizard`
+
+**Inherits**: `QMainWindow` (PyQt6)
+
+### Class Definition
+
+```python
+class SetupWizard(QMainWindow):
+    """First-run setup wizard shown before the main Klaus window."""
+```
+
+### Signals
+
+<ParamField path="setup_finished" type="pyqtSignal()">
+  Emitted when the user completes the wizard (currently unused; wizard quits the app instead).
+</ParamField>
+
+### Constructor
+
+```python
+def __init__(self):
+```
+
+**Window settings**:
+- Title: "Klaus Setup"
+- Minimum size: 640x520
+- Default size: 700x560
+
+**Layout**:
+- Step indicator (row of dots) at the top
+- `QStackedWidget` with 7 pages
+- Navigation buttons (Back/Next) at the bottom
+
+### Steps
+
+The wizard contains 7 steps:
+
+1. **Welcome** (`_build_step_welcome()`)
+2. **API Keys** (`_build_step_api_keys()`)
+3. **Camera** (`_build_step_camera()`)
+4. **Microphone** (`_build_step_mic()`)
+5. **Voice Model** (`_build_step_model()`)
+6. **About You** (`_build_step_about_you()`)
+7. **Done** (`_build_step_done()`)
+
+### Step 1: Welcome
+
+Informational page with:
+- Title: "Welcome to Klaus"
+- Subtitle explaining the app
+- Three feature cards:
+  - "How It Works"
+  - "Getting Better Answers"
+  - "Tool use"
+- Footer: "You can change any setup choices later in Settings."
+- "Get Started" button to advance to step 2
+
+### Step 2: API Keys
+
+Identical to SettingsDialog API Keys tab, but:
+- All three keys are required (Next button disabled until all valid)
+- Uses `KEY_PATTERNS` and `KEY_URLS` from `klaus.ui.shared.key_validation`
+- "Get a key" link buttons open external URLs
+- Footer explains keychain storage
+
+**Validation**:
+- Real-time validation with ✓/✗ indicators
+- Error hints below each field
+- Next button enabled only when all keys are valid
+
+### Step 3: Camera
+
+Camera dropdown with live preview.
+
+**Features**:
+- Uses `_CameraPreview` helper class (small OpenCV preview, 320x240, 66ms timer)
+- Enumerates cameras via `list_camera_devices()`
+- "No camera (audio only)" option
+- Tip: "For best results, position your camera above your reading area..."
+
+**Behavior**:
+- Populates when the step is shown
+- Defaults to first camera (if available)
+- Stops preview when navigating away
+
+### Step 4: Microphone
+
+Microphone dropdown with live volume meter.
+
+**Features**:
+- Uses `MicLevelMonitor` with 50ms timer
+- Enumerates mics via `list_input_devices()`
+- "System default microphone" option
+- Volume meter: `QProgressBar` (0-100 range)
+- Hint: "Speak to see the meter respond..."
+
+**Behavior**:
+- Populates when the step is shown
+- Defaults to config value or system default
+- Starts monitoring when shown; stops when navigating away
+
+### Step 5: Voice Model
+
+Downloads the Moonshine STT model in a background thread.
+
+**Features**:
+- Info text: "Klaus needs to download a speech recognition model (~245 MB)..."
+- Indeterminate progress bar (0, 0 range)
+- Status label: "Downloading..." / "Model ready" / "Download failed: ..."
+- Retry button (shown on failure)
+
+**Behavior**:
+- Starts download automatically when the step is shown
+- Uses `_ModelDownloadThread` (calls `moonshine_voice.get_model_for_language`)
+- On success: advances to step 6 after 600ms
+- On failure: shows error and retry button
+
+**Helper class**:
+
+```python
+class _ModelDownloadThread(QThread):
+    finished = pyqtSignal(bool, str)  # success, error_message
+```
+
+### Step 6: About You
+
+Optional user background and Obsidian vault path.
+
+**User Background**:
+- Multi-line text field (`QPlainTextEdit`)
+- Placeholder: "e.g. I'm a software engineer interested in physics and philosophy..."
+
+**Obsidian Vault Path**:
+- Read-only text field with "Browse..." button
+- Help button (`?`) with tooltip and info dialog
+- Placeholder: "Optional — click Browse to select"
+
+**Skip button**: Jumps to step 7 (Done)
+
+### Step 7: Done
+
+Final confirmation page.
+
+**Content**:
+- Heading: "You're all set."
+- Instructions: "Just start speaking, or hold F2 to use push-to-talk. Press F3 to switch modes."
+- "Start using Klaus" button
+
+**Behavior**:
+- Clicking the button calls `_finish_setup()`:
+  - Writes all collected config (`save_api_keys`, `save_camera_index`, `save_mic_index`, `save_user_background`, `save_obsidian_vault_path`)
+  - Calls `config.mark_setup_complete()`
+  - Calls `config.reload()`
+  - Quits the app (`QApplication.instance().quit()`)
+
+### Navigation
+
+**Back button**: Visible on steps 1-5; hidden on steps 0 and 6
+
+**Next button**: Visible on steps 0-5; hidden on step 6
+- Disabled on step 1 (API Keys) until all keys are valid
+- Enabled on all other steps
+
+**Step transitions**:
+- Step 2 → 3: Stops mic monitor, stops camera preview
+- Step 3 → 4: Starts mic monitor
+- Step 4 → 5: Starts model download
+- Step 5 → 6: Collects user background and vault path
+
+### Helper Classes
+
+#### _StepIndicator
+
+```python
+class _StepIndicator(QWidget):
+    """Row of dots showing which setup step is active."""
+```
+
+**Behavior**:
+- Shows 7 dots (one per step)
+- Completed steps: Klaus accent color
+- Current step: User accent color, larger size
+- Future steps: Muted color
+
+#### _CameraPreview
+
+```python
+class _CameraPreview(QWidget):
+    """Small live preview of a camera, used during setup."""
+```
+
+**Features**:
+- Fixed size: 320x240
+- OpenCV capture with platform-specific backend (`CAP_DSHOW` on Windows)
+- 66ms timer (~15 FPS)
+- Scales frame to fit 320x240 while preserving aspect ratio
+
+**Methods**:
+
+```python
+def start(self, device_index: int) -> None:
+```
+
+Starts the preview for the given camera index.
+
+```python
+def stop(self) -> None:
+```
+
+Stops the preview and releases the camera.
+
+---
+
+## Shared Components
+
+### Key Validation
+
+**Module**: `klaus.ui.shared.key_validation`
+
+**Constants**:
+- `KEY_PATTERNS`: List of tuples `(label, slug, prefix, min_len)` for each API provider
+- `KEY_URLS`: Dict mapping slugs to API key signup URLs
+
+**Function**:
+
+```python
+def validate_api_key(slug: str, key: str) -> tuple[bool, str]:
+```
+
+Returns `(is_valid, error_message)`. Checks prefix and minimum length; does not make API calls.
+
+### Microphone Level Monitor
+
+**Module**: `klaus.ui.shared.mic_level_monitor`
+
+**Class**:
+
+```python
+class MicLevelMonitor:
+```
+
+**Methods**:
+
+```python
+def start(self, device: int | None) -> bool:
+```
+
+Starts monitoring the given mic device (or system default if `None`). Returns `True` on success.
+
+```python
+def stop(self) -> None:
+```
+
+Stops monitoring and releases the audio stream.
+
+```python
+def level_percent(self) -> int:
+```
+
+Returns the current volume level as a percentage (0-100).
+
+---
+
+## Usage Example
+
+### SettingsDialog
+
+```python
+from klaus.ui.settings_dialog import SettingsDialog
+from PyQt6.QtWidgets import QApplication
+
+app = QApplication([])
+dialog = SettingsDialog(
+    active_camera_index=0,
+    active_mic_device=None,
+)
+
+# Connect signals
+dialog.camera_device_changed.connect(lambda idx: print(f"Camera: {idx}"))
+dialog.mic_device_changed.connect(lambda dev: print(f"Mic: {dev}"))
+
+if dialog.exec():
+    print("Settings saved")
+```
+
+### SetupWizard
+
+```python
+from klaus.ui.setup_wizard import SetupWizard
+from PyQt6.QtWidgets import QApplication
+
+app = QApplication([])
+wizard = SetupWizard()
+wizard.show()
+app.exec()
+```
+
+---
+
+## Notes
+
+- **Lazy population**: Camera and mic dropdowns populate only when their tabs/steps are shown
+- **Immediate apply**: Camera/mic changes in SettingsDialog apply and persist immediately (no need to click Save)
+- **Rollback support**: `set_camera_selection()` and `set_mic_selection()` allow reverting the dropdown after a failed device switch
+- **Key storage**: macOS uses Keychain; fallback is `~/.klaus/config.toml`
+- **Model download**: Uses background thread to avoid blocking UI; retry button on failure
+- **Wizard quits app**: On completion, the wizard saves config and quits; `main.py` then reloads and launches the main window

@@ -1,0 +1,301 @@
+---
+title: 'Configuration'
+description: 'Configuration loading, runtime settings, and persistence'
+---
+
+## Configuration System
+
+Klaus uses a hybrid configuration system:
+- **Primary:** `~/.klaus/config.toml` (TOML format)
+- **Fallback:** `.env` file (via python-dotenv)
+- **Runtime:** Module-level constants exported from `config.py`
+
+## RuntimeSettings
+
+Dataclass containing all runtime configuration values.
+
+```python
+@dataclass(frozen=True)
+class RuntimeSettings:
+    anthropic_api_key: str
+    openai_api_key: str
+    tavily_api_key: str
+    obsidian_vault_path: str
+    push_to_talk_key: str
+    toggle_key: str
+    camera_device_index: int
+    camera_frame_width: int
+    camera_frame_height: int
+    camera_rotation: str
+    mic_device_index: int
+    tts_voice: str
+    tts_speed: float
+    input_mode: str
+    vad_sensitivity: int
+    vad_silence_timeout: float
+    vad_min_duration: float
+    vad_min_voiced_ratio: float
+    vad_min_voiced_frames: int
+    vad_min_rms_dbfs: float
+    vad_min_voiced_run_frames: int
+    stt_moonshine_model: str
+    stt_moonshine_language: str
+    user_background: str
+    enable_query_router: bool
+    router_model: str
+    router_timeout_ms: int
+    router_max_tokens: int
+    router_local_confidence_threshold: float
+    router_local_margin_threshold: float
+    router_llm_confidence_threshold: float
+    system_prompt: str
+```
+
+**Location:** config.py:199-232
+
+## Core Functions
+
+### get_runtime_settings()
+
+Retrieve the current runtime settings.
+
+```python
+def get_runtime_settings() -> RuntimeSettings:
+```
+
+<ResponseField name="settings" type="RuntimeSettings">
+  Current runtime configuration
+</ResponseField>
+
+**Location:** config.py:641-642
+
+### reload()
+
+Re-read `config.toml` and update module-level constants.
+
+```python
+def reload() -> None:
+```
+
+Call after the setup wizard writes new values so that components created afterward pick up the fresh configuration.
+
+**Location:** config.py:874-894
+
+### is_setup_complete()
+
+Check whether the first-run wizard has been completed.
+
+```python
+def is_setup_complete() -> bool:
+```
+
+<ResponseField name="complete" type="bool">
+  True if setup_complete is set in config.toml
+</ResponseField>
+
+**Location:** config.py:665-667
+
+## API Key Management
+
+### set_api_key()
+
+Persist one API key using Keychain on macOS with config fallback.
+
+```python
+def set_api_key(slug: str, value: str) -> None:
+```
+
+<ParamField path="slug" type="str" required>
+  API key identifier: "anthropic", "openai", or "tavily"
+</ParamField>
+
+<ParamField path="value" type="str" required>
+  API key value (empty string to clear)
+</ParamField>
+
+**Location:** config.py:716-744
+
+### save_api_keys()
+
+Persist all three API keys at once.
+
+```python
+def save_api_keys(anthropic: str, openai: str, tavily: str) -> None:
+```
+
+**Location:** config.py:752-779
+
+### get_api_key_sources()
+
+Get the source of each API key ("keychain", "env", "config", or "missing").
+
+```python
+def get_api_key_sources() -> dict[str, str]:
+```
+
+<ResponseField name="sources" type="dict[str, str]">
+  Mapping from slug to source string
+</ResponseField>
+
+**Location:** config.py:645-646
+
+## Device Settings
+
+### set_camera_index()
+
+Update the active camera index and optionally persist it.
+
+```python
+def set_camera_index(index: int, persist: bool = True) -> None:
+```
+
+<ParamField path="index" type="int" required>
+  Camera device index
+</ParamField>
+
+<ParamField path="persist" type="bool" default="True">
+  Whether to write to config.toml
+</ParamField>
+
+**Location:** config.py:804-809
+
+### set_mic_index()
+
+Update the active microphone index and optionally persist it.
+
+```python
+def set_mic_index(index: int, persist: bool = True) -> None:
+```
+
+<ParamField path="index" type="int" required>
+  Microphone device index (-1 for system default)
+</ParamField>
+
+<ParamField path="persist" type="bool" default="True">
+  Whether to write to config.toml
+</ParamField>
+
+**Location:** config.py:817-822
+
+## Profile Settings
+
+### save_user_background()
+
+Persist the user background description to config.toml.
+
+```python
+def save_user_background(text: str) -> None:
+```
+
+<ParamField path="text" type="str" required>
+  User background description (injected into system prompt)
+</ParamField>
+
+**Location:** config.py:830-833
+
+### save_obsidian_vault_path()
+
+Persist the Obsidian vault path to config.toml.
+
+```python
+def save_obsidian_vault_path(path: str) -> None:
+```
+
+<ParamField path="path" type="str" required>
+  Absolute path to Obsidian vault folder
+</ParamField>
+
+**Location:** config.py:836-839
+
+### mark_setup_complete()
+
+Set `setup_complete = true` in config.toml.
+
+```python
+def mark_setup_complete() -> None:
+```
+
+**Location:** config.py:799-801
+
+## Module-Level Constants
+
+After config loading, the following constants are exported at module level:
+
+```python
+CLAUDE_MODEL: str = "claude-sonnet-4-6"
+TTS_MODEL: str = "gpt-4o-mini-tts"
+
+ANTHROPIC_API_KEY: str
+OPENAI_API_KEY: str
+TAVILY_API_KEY: str
+
+OBSIDIAN_VAULT_PATH: str
+PUSH_TO_TALK_KEY: str
+TOGGLE_KEY: str
+
+CAMERA_DEVICE_INDEX: int
+CAMERA_FRAME_WIDTH: int
+CAMERA_FRAME_HEIGHT: int
+CAMERA_ROTATION: str
+
+MIC_DEVICE_INDEX: int
+
+TTS_VOICE: str
+TTS_SPEED: float
+
+INPUT_MODE: str
+
+VAD_SENSITIVITY: int
+VAD_SILENCE_TIMEOUT: float
+VAD_MIN_DURATION: float
+VAD_MIN_VOICED_RATIO: float
+VAD_MIN_VOICED_FRAMES: int
+VAD_MIN_RMS_DBFS: float
+VAD_MIN_VOICED_RUN_FRAMES: int
+
+STT_MOONSHINE_MODEL: str
+STT_MOONSHINE_LANGUAGE: str
+
+USER_BACKGROUND: str
+
+ENABLE_QUERY_ROUTER: bool
+ROUTER_MODEL: str
+ROUTER_TIMEOUT_MS: int
+ROUTER_MAX_TOKENS: int
+ROUTER_LOCAL_CONFIDENCE_THRESHOLD: float
+ROUTER_LOCAL_MARGIN_THRESHOLD: float
+ROUTER_LLM_CONFIDENCE_THRESHOLD: float
+
+SYSTEM_PROMPT: str
+```
+
+**Location:** config.py:180-481
+
+## File Paths
+
+```python
+DATA_DIR = Path.home() / ".klaus"
+DB_PATH = DATA_DIR / "klaus.db"
+CONFIG_PATH = DATA_DIR / "config.toml"
+```
+
+**Location:** config.py:18-20
+
+## Configuration Format
+
+The `config.toml` file supports:
+- Top-level keys for device indices, hotkeys, TTS voice, VAD parameters, etc.
+- Optional `[api_keys]` section (legacy, superseded by Keychain on macOS)
+- Comments with `#`
+
+Default values are applied for any missing keys. See config.py:22-124 for the full template.
+
+## System Prompt
+
+The system prompt is dynamically built from:
+1. Base personality and brevity rules
+2. `user_background` (if provided)
+3. Voice style rules
+4. Notes capability instructions
+
+See `_build_system_prompt()` at config.py:323-332 and `_SYSTEM_PROMPT_BODY` at config.py:335-443.

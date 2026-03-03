@@ -1,0 +1,167 @@
+---
+title: "Hotkey Configuration"
+description: "Configuring push-to-talk and input mode toggle keys"
+---
+
+Klaus supports two input modes controlled by configurable hotkeys:
+
+- **Push-to-talk**: Hold a key to record, release to send
+- **Voice-activated**: Speak naturally and Klaus detects your voice automatically
+
+You can switch between these modes using a toggle key.
+
+## Hotkey Settings
+
+<ParamField path="hotkey" type="string" default="§ (macOS) / F2 (Windows)">
+  The push-to-talk key. Hold this key to record audio, release to process your question.
+  
+  **Valid values**: Any keyboard key name recognized by the `pynput` library, including:
+  - Function keys: `F1`, `F2`, `F3`, etc.
+  - Special keys: `§`, `\``, etc.
+  - Modifier combinations not supported
+  
+  **Platform defaults**:
+  - macOS: `§` (section sign, key above Tab on ISO keyboards)
+  - Windows/Linux: `F2`
+</ParamField>
+
+<ParamField path="toggle_key" type="string" default="§ (macOS) / F3 (Windows)">
+  Key to toggle between voice-activated and push-to-talk input modes.
+  
+  **Valid values**: Same as `hotkey`
+  
+  **Platform defaults**:
+  - macOS: `§`
+  - Windows/Linux: `F3`
+</ParamField>
+
+## Example Configuration
+
+```toml config.toml
+# Use F2 for push-to-talk
+hotkey = "F2"
+
+# Use F3 to toggle between voice-activated and PTT modes
+toggle_key = "F3"
+```
+
+## Hotkey Behavior
+
+Klaus implements hotkeys with two parallel systems:
+
+### 1. In-App Hotkeys (Always Active)
+
+- Work when Klaus window is focused
+- No special permissions required
+- Always available on all platforms
+
+### 2. Global Hotkeys (Optional)
+
+- Work even when Klaus is in the background
+- Require **Accessibility permissions** on macOS
+- Powered by `pynput` library
+
+<Warning>
+  On macOS 26 + Python 3.14, `pynput` global hotkeys can crash. Klaus automatically disables global hotkeys on this combination while keeping in-app hotkeys active. Use Python 3.13 for stable global hotkey support.
+</Warning>
+
+## macOS F-Key Considerations
+
+On macOS, function keys (F1-F12) trigger system actions by default:
+
+- `F1`/`F2`: Brightness
+- `F3`: Mission Control
+- `F10`/`F11`/`F12`: Volume
+
+To use F-keys in Klaus, you have three options:
+
+### Option 1: Press Fn + F-key
+
+Hold the `Fn` key while pressing the function key (e.g., `Fn+F2`).
+
+### Option 2: Enable Standard Function Keys
+
+1. Open **System Settings** → **Keyboard**
+2. Enable **"Use F1, F2, etc. keys as standard function keys"**
+3. Function keys will now work directly without `Fn`
+
+### Option 3: Use a Different Key
+
+Edit `config.toml` to use a non-F-key:
+
+```toml
+# Use backtick for push-to-talk instead of F2
+hotkey = "`"
+
+# Use section sign for toggle instead of F3  
+toggle_key = "§"
+```
+
+## macOS Accessibility Permissions
+
+For **global hotkeys** to work when Klaus is not focused, macOS requires Accessibility permission:
+
+1. When you first use a hotkey, macOS prompts for Accessibility access
+2. Grant permission to your Terminal app (or Klaus if running standalone)
+3. Hotkeys will work globally after permission is granted
+
+**If you deny permission**:
+- In-app hotkeys still work when Klaus is focused
+- Global hotkeys won't trigger when Klaus is in the background
+- You can grant permission later in **System Settings** → **Privacy & Security** → **Accessibility**
+
+## Key Name Reference
+
+Common key names you can use for `hotkey` and `toggle_key`:
+
+### Function Keys
+```
+F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12
+```
+
+### Special Keys
+```
+§ (section sign)
+` (backtick)
+- (minus)
+= (equals)
+[ (left bracket)
+] (right bracket)
+\ (backslash)
+; (semicolon)
+' (apostrophe)
+, (comma)
+. (period)
+/ (slash)
+```
+
+### Letters and Numbers
+```
+a-z (lowercase letters)
+0-9 (numbers)
+```
+
+<Info>
+  Key names are case-sensitive. Use lowercase for letters (e.g., `hotkey = "a"`, not `hotkey = "A"`).
+</Info>
+
+## Troubleshooting
+
+### Hotkeys Don't Work
+
+1. **Check Klaus window focus**: In-app hotkeys only work when Klaus is focused
+2. **Verify macOS permissions**: Global hotkeys need Accessibility permission
+3. **Check for conflicts**: Another app may be using the same key
+4. **Try a different key**: Some keys may be reserved by your OS
+
+### Global Hotkeys Crash on macOS
+
+- This is a known issue with macOS 26 + Python 3.14
+- Klaus auto-detects this and disables global hotkeys
+- Use Python 3.13 for stable global hotkey support
+- In-app hotkeys continue to work normally
+
+### F-Keys Trigger System Actions on macOS
+
+- See [macOS F-Key Considerations](#macos-f-key-considerations) above
+- Either use `Fn` modifier, enable standard F-keys in settings, or choose a different key

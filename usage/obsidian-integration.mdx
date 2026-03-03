@@ -1,0 +1,319 @@
+---
+title: Obsidian Integration
+description: Taking notes hands-free while you read with Klaus
+---
+
+Klaus can write notes directly to your [Obsidian](https://obsidian.md) vault as you speak, letting you capture ideas, definitions, quotes, and page references without leaving your reading flow.
+
+## Setup
+
+You'll configure your Obsidian vault path during the first-run setup wizard, or you can add it later in Settings.
+
+### During First Run
+
+<Steps>
+  <Step title="Run the setup wizard">
+    On first launch, Klaus walks you through a 7-step setup wizard.
+  </Step>
+  
+  <Step title="Reach the 'About You' step">
+    This step asks for your user background (optional) and Obsidian vault path (optional).
+  </Step>
+  
+  <Step title="Click 'Browse' next to Obsidian Vault Path">
+    A native folder picker opens.
+  </Step>
+  
+  <Step title="Select your vault folder">
+    Navigate to your Obsidian vault's root directory (e.g., `/Users/you/Documents/Obsidian Vault`) and click "Select Folder".
+  </Step>
+</Steps>
+
+### After First Run
+
+<Steps>
+  <Step title="Open Settings">
+    Click the gear icon in the top-right corner of Klaus.
+  </Step>
+  
+  <Step title="Go to the Profile tab">
+    The Profile tab contains User Background and Obsidian Vault Path.
+  </Step>
+  
+  <Step title="Click 'Browse' and select your vault">
+    Same as above - use the folder picker to select your vault's root directory.
+  </Step>
+  
+  <Step title="Click Save">
+    Klaus reloads the configuration and notes are now enabled.
+  </Step>
+</Steps>
+
+### Manual Configuration
+
+You can also edit `~/.klaus/config.toml` directly:
+
+```toml
+obsidian_vault_path = "/Users/you/Documents/Obsidian Vault"
+```
+
+Or set an environment variable in `~/.klaus/.env`:
+
+```bash
+OBSIDIAN_VAULT_PATH="/Users/you/Documents/Obsidian Vault"
+```
+
+<Note>
+  Klaus uses forward slashes `/` for paths on all platforms (Windows paths are converted automatically).
+</Note>
+
+## How It Works
+
+Klaus exposes two tools to Claude:
+
+1. **`set_notes_file`** - Sets the active markdown file for saving notes
+2. **`save_note`** - Appends content to the active notes file
+
+You control these tools through natural language commands.
+
+## Setting the Active Notes File
+
+Before Klaus can save notes, you need to tell it which markdown file to use.
+
+### Spoken Command
+
+```
+You: "Set the notes file to Complexity Science slash March Notes"
+
+Klaus: "Notes file set to: Complexity Science/March Notes.md"
+```
+
+Klaus will:
+- Create the folder `Complexity Science/` if it doesn't exist
+- Create the file `March Notes.md` if it doesn't exist
+- Remember this file for the rest of the session
+
+### Path Rules
+
+- Paths are **relative to your vault root**
+- Use natural language for folder separators - Klaus interprets "slash", "/", or pauses as path dividers
+- The `.md` extension is added automatically if missing
+- Klaus creates parent folders and the file if they don't exist
+
+**Examples:**
+
+| You say | Klaus creates |
+|---------|---------------|
+| "Set notes to daily notes slash today" | `daily notes/today.md` |
+| "Use foundational papers in complexity science slash first march notes" | `foundational papers in complexity science/first march notes.md` |
+| "Set notes to reading log" | `reading log.md` |
+
+## Saving Notes
+
+Once a notes file is set, you can dictate notes hands-free.
+
+### Basic Usage
+
+```
+You: "Save this as a note: Phase transitions occur when a system crosses 
+a critical threshold. Water freezes at zero Celsius - abrupt change from 
+liquid to solid."
+
+Klaus: "Note saved to Complexity Science/March Notes.md"
+```
+
+Klaus appends the content to the file immediately.
+
+### What to Save
+
+Klaus can save:
+
+- **Definitions** - "Save this definition: Emergence is..."
+- **Quotes** - "Save this quote from the page: 'Complex systems...'"
+- **Page references** - "Note that this is on page 47"
+- **Summaries** - "Summarize this section and save it as a note"
+- **Ideas** - "Save a note: This relates to the renormalization group discussion from last week"
+
+### Markdown Formatting
+
+Klaus automatically formats notes as markdown:
+
+**You:**
+```
+"Save this as a note with a heading: Phase Transitions. Then write: 
+Definition - a sudden qualitative change when a parameter crosses a 
+threshold. Use a blockquote for this quote from the page: 'At the 
+critical point, fluctuations occur at all length scales.'"
+```
+
+**Klaus writes:**
+```markdown
+## Phase Transitions
+
+Definition - a sudden qualitative change when a parameter crosses a threshold.
+
+> At the critical point, fluctuations occur at all length scales.
+```
+
+### Page References
+
+When Klaus can see a page number in the camera image, it can include it:
+
+```
+You: "Save a note that this definition of entropy is on this page"
+
+Klaus: [sees page number 203 in the image]
+Writes: "**Entropy** (page 203): A measure of disorder or the number of 
+microstates consistent with a macrostate."
+```
+
+## Session Persistence
+
+The active notes file **persists within a session**. Once you set a file, Klaus keeps using it until:
+
+- You explicitly set a different file
+- You switch to a new session
+- You close Klaus
+
+This lets you save multiple notes to the same file without repeating the path.
+
+<Tip>
+  Set your notes file at the start of a reading session, then just say "save that as a note" whenever you want to capture something.
+</Tip>
+
+## Changing the Notes File Mid-Session
+
+You can switch to a different file at any time:
+
+```
+You: "Set notes to weekly summaries slash week of march 3rd"
+
+Klaus: "Notes file set to: weekly summaries/week of march 3rd.md"
+```
+
+Subsequent notes go to the new file.
+
+## Viewing Notes in Obsidian
+
+Klaus writes standard markdown files. Open Obsidian and navigate to the file - you'll see all the notes Klaus saved, appended in chronological order.
+
+Klaus adds a newline before and after each note for readability.
+
+## Error Handling
+
+### No Vault Path Configured
+
+```
+You: "Save that as a note"
+
+Klaus: "Error: No Obsidian vault path configured. Set OBSIDIAN_VAULT_PATH 
+in your config."
+```
+
+**Solution:** Configure your vault path in Settings or `config.toml`.
+
+### No Notes File Set
+
+```
+You: "Save this as a note: [content]"
+
+Klaus: "Error: No notes file set. Which file should I use?"
+
+You: "Use reading notes slash march 3rd"
+
+Klaus: "Notes file set to: reading notes/march 3rd.md. Would you like me 
+to save that note now?"
+```
+
+### File Write Errors
+
+If Klaus can't write to the file (permissions issue, disk full, etc.):
+
+```
+Klaus: "Error writing note: [system error message]"
+```
+
+**Solution:** Check file permissions and disk space. Klaus logs the full error to the console.
+
+## Tips for Effective Note-Taking
+
+### 1. Structure Your Vault
+
+Organize notes by topic, paper, or date to keep them discoverable:
+
+```
+Obsidian Vault/
+  reading notes/
+    complexity science/
+      march 2026.md
+    machine learning/
+      transformers.md
+  weekly summaries/
+    2026-03-03.md
+```
+
+### 2. Use Consistent Naming
+
+Pick a naming convention and stick to it:
+
+- **By date:** `march 3 2026.md`
+- **By topic:** `phase transitions.md`
+- **By paper:** `anderson more is different.md`
+
+### 3. Combine with Session History
+
+Klaus's session history is ephemeral, but notes persist. Use sessions for your working conversation and save key insights to notes.
+
+### 4. Markdown Features
+
+Tell Klaus to use markdown formatting:
+
+- **Headings:** "Use heading two for this"
+- **Blockquotes:** "Make this a blockquote"
+- **Bold/Italic:** "Bold this term" or "Italicize this phrase"
+- **Lists:** "Make this a bullet list" or "Number these points"
+
+### 5. Review and Refine
+
+Klaus's notes are raw transcriptions. Review them in Obsidian and refine as needed - add links, reorganize, expand abbreviations, etc.
+
+## Disabling Notes
+
+To disable the notes feature, clear the vault path:
+
+1. Open Settings → Profile
+2. Clear the Obsidian Vault Path field
+3. Click Save
+
+Or edit `config.toml`:
+
+```toml
+obsidian_vault_path = ""
+```
+
+Klaus will no longer offer note-taking tools.
+
+## Technical Details
+
+### File Format
+
+Klaus writes UTF-8 encoded markdown files with Unix line endings (`\n`).
+
+### Concurrency
+
+Klaus appends to files using Python's standard file I/O. If Obsidian has the file open, it should auto-reload when Klaus writes. If you're editing the same file in Obsidian while Klaus is writing, you may see conflicts - avoid this by using different files for active editing vs. Klaus dictation.
+
+### Storage Location
+
+The notes file path is stored in `~/.klaus/klaus.db` in the `sessions` table, under the `notes_file` column. Klaus remembers which file you used for each session.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Asking Questions" icon="message-question" href="/usage/asking-questions">
+    Learn how to get the best answers to save as notes
+  </Card>
+  <Card title="Sessions" icon="folder" href="/usage/sessions">
+    Organize your research by session
+  </Card>
+</CardGroup>

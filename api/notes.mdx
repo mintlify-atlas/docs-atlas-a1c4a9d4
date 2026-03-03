@@ -1,0 +1,210 @@
+---
+title: Notes Management
+description: Obsidian vault integration for saving notes during research sessions
+---
+
+## Overview
+
+Klaus can save notes to an **Obsidian vault** during research sessions. Users can ask Klaus to save quotes, definitions, summaries, or page references as markdown notes.
+
+## NotesManager Class
+
+The `NotesManager` class manages reading and writing markdown files in an Obsidian vault.
+
+### Constructor
+
+```python
+from klaus.notes import NotesManager
+
+manager = NotesManager(base_path=None)
+```
+
+<ParamField path="base_path" type="str | None" default="None">
+  Path to the Obsidian vault directory. If `None`, reads from `config.OBSIDIAN_VAULT_PATH`.
+</ParamField>
+
+### Properties
+
+#### `base_path` (read-only)
+
+Returns the configured Obsidian vault base path as a string.
+
+#### `current_file`
+
+The currently active notes file (relative path from vault root), or `None` if not set.
+
+#### `changed` (read-only)
+
+Boolean indicating whether the notes file was changed since the last `reset_changed()` call.
+
+### Methods
+
+#### `set_file(relative_path: str) -> str`
+
+Set the active notes file. Creates parent directories and the file if they don't exist.
+
+<ParamField path="relative_path" type="str" required>
+  Relative path to the markdown file (e.g., `"Papers/March 2026.md"`). The `.md` extension is added automatically if missing.
+</ParamField>
+
+**Returns:** Confirmation message string for Claude to relay.
+
+**Example:**
+
+```python
+from klaus.notes import NotesManager
+
+manager = NotesManager(base_path="/Users/alice/ObsidianVault")
+message = manager.set_file("Research/AI Safety Notes")
+print(message)
+# Output: "Notes file set to: Research/AI Safety Notes.md"
+```
+
+#### `save_note(content: str) -> str`
+
+Append markdown content to the current notes file.
+
+<ParamField path="content" type="str" required>
+  Markdown-formatted content to append
+</ParamField>
+
+**Returns:** Confirmation message string for Claude to relay.
+
+**Example:**
+
+```python
+from klaus.notes import NotesManager
+
+manager = NotesManager(base_path="/Users/alice/ObsidianVault")
+manager.set_file("Daily/2026-03-03")
+
+message = manager.save_note(
+    "## Neural Scaling Laws\n\n"
+    "Key insight: Model performance scales predictably with compute, data, and parameters."
+)
+print(message)
+# Output: "Note saved to Daily/2026-03-03.md"
+```
+
+#### `reset_changed() -> None`
+
+Reset the `changed` flag to `False`.
+
+## Tool Definitions
+
+Notes functionality is exposed to Claude via two tool definitions:
+
+### `SET_NOTES_FILE_TOOL`
+
+```python
+from klaus.notes import SET_NOTES_FILE_TOOL
+
+print(SET_NOTES_FILE_TOOL)
+```
+
+**Output:**
+
+```python
+{
+    "name": "set_notes_file",
+    "description": (
+        "Set the markdown file for saving notes in the user's Obsidian vault. "
+        "The path is relative to the configured vault base directory. "
+        "Creates parent directories and the file if they don't exist. "
+        "This persists across questions until the user changes it."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "file_path": {
+                "type": "string",
+                "description": (
+                    "Relative path to the markdown file, e.g. "
+                    "'Foundational Papers in Complexity Science/1st March Notes.md'. "
+                    "The .md extension is added automatically if missing."
+                ),
+            }
+        },
+        "required": ["file_path"],
+    },
+}
+```
+
+### `SAVE_NOTE_TOOL`
+
+```python
+from klaus.notes import SAVE_NOTE_TOOL
+
+print(SAVE_NOTE_TOOL)
+```
+
+**Output:**
+
+```python
+{
+    "name": "save_note",
+    "description": (
+        "Append a note to the user's current notes file in Obsidian. "
+        "Use this when the user asks you to save a quote, idea, definition, "
+        "page reference, summary, or any other content to their notes. "
+        "Format the content as markdown."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "string",
+                "description": "Markdown-formatted content to append to the notes file.",
+            }
+        },
+        "required": ["content"],
+    },
+}
+```
+
+## Usage in Brain
+
+The `Brain` class registers both tool definitions with Claude. When the user asks Klaus to save a note, Claude:
+
+1. Calls `set_notes_file` (if no file is set yet)
+2. Calls `save_note` with markdown content
+
+**Example conversation:**
+
+```
+User: "Save a note about neural scaling laws."
+
+Claude invokes:
+  set_notes_file(file_path="Research/AI Papers")
+  save_note(content="## Neural Scaling Laws\n\nModel performance scales predictably...")
+
+Klaus: "I've saved that to Research/AI Papers.md in your vault."
+```
+
+## Configuration
+
+Set your Obsidian vault path in `~/.klaus/config.toml`:
+
+```toml
+[notes]
+obsidian_vault_path = "/Users/alice/ObsidianVault"
+```
+
+Or in `.env`:
+
+```bash
+OBSIDIAN_VAULT_PATH=/Users/alice/ObsidianVault
+```
+
+Notes are **disabled** when the path is empty.
+
+## Implementation Details
+
+- **Automatic `.md` extension**: The `.md` suffix is added automatically if missing from the file path.
+- **Directory creation**: Parent directories are created automatically (`mkdir -p` behavior).
+- **File persistence**: The current notes file persists across questions in the same session.
+- **Session tracking**: The notes file path is stored in the session record in `klaus.db`.
+
+## Source Reference
+
+See `klaus/notes.py` for the full implementation.

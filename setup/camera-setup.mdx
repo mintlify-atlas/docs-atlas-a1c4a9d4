@@ -1,0 +1,137 @@
+---
+title: 'Camera Setup'
+description: 'Configure camera hardware for capturing book and paper pages'
+---
+
+## Overview
+
+Klaus requires a camera to see the pages you're reading. The camera should provide a clear, stable view of your entire reading surface.
+
+## Recommended Hardware
+
+### Option 1: USB Document Camera (Recommended)
+
+A USB document camera (also called a visualiser) provides the best experience with:
+- Stable mounting
+- Consistent lighting
+- Clear full-page capture
+- No additional setup required
+
+**Recommended Model:**
+
+PAKOTOO/kitchbai Document Camera with built-in light:
+
+- [Amazon US](https://www.amazon.com/PAKOTOO-Document-Teachers-Classroom-Distance)
+- [Amazon UK](https://www.amazon.co.uk/kitchbai-Visualiser-Teaching-Classroom-Chromebook)
+
+This model includes:
+- Adjustable gooseneck arm
+- Built-in LED light for low-light conditions
+- USB plug-and-play connectivity
+- Compatible with macOS and Windows
+
+### Option 2: Phone as Webcam
+
+A smartphone on a gooseneck mount (~$10-15) works well as an alternative. Point the phone camera straight down at your reading surface.
+
+<Note>
+  **Auto-Rotation**
+  
+  Klaus automatically detects portrait orientation and rotates images. You can override this with `camera_rotation` in `~/.klaus/config.toml`.
+</Note>
+
+## Phone Webcam Apps
+
+If using your phone as a camera, use these apps to connect it to your computer:
+
+| Platform | App | Details |
+|----------|-----|----------|
+| **macOS + iPhone** | [Continuity Camera](https://support.apple.com/en-us/102546) (Built-in) | iOS 16+, macOS Ventura+. No installation needed, works wirelessly |
+| **macOS + Android** | [Camo](https://reincubate.com/camo/) | Free tier, 1080p. Install on phone + Mac, pair via QR or USB |
+| **Windows + iPhone** | [Camo](https://reincubate.com/camo/) | Free tier, 1080p. Install on phone + PC, pair via QR or USB |
+| **Windows + Android** | [DroidCam](https://www.dev47apps.com/) | Free. Install on phone + PC, connect over Wi-Fi or USB |
+
+## Camera Configuration
+
+### During Setup
+
+The first-run setup wizard lets you:
+1. Select your camera from a list of detected devices
+2. Preview the live feed
+3. Test page capture
+
+### Camera Settings
+
+You can adjust camera settings in `~/.klaus/config.toml`:
+
+```toml
+camera_index = 0          # Change if you have multiple cameras
+camera_width = 1920       # Resolution width
+camera_height = 1080      # Resolution height
+camera_rotation = "auto"  # Options: auto, none, 90, 180, 270
+```
+
+### Changing Cameras
+
+If you need to switch cameras after setup:
+
+1. Open Klaus
+2. Click the settings button (gear icon)
+3. Go to the **Camera** tab
+4. Select a different camera from the dropdown
+5. Changes apply immediately
+
+## Positioning Tips
+
+<Steps>
+  <Step title="Mount the camera directly above your reading surface">
+    The camera should point straight down at your desk or book stand.
+  </Step>
+
+  <Step title="Ensure the entire page is visible">
+    Position the camera high enough to capture a full page (or spread) without cutting off edges.
+  </Step>
+
+  <Step title="Check lighting">
+    Avoid shadows on the page. Use ambient lighting or the camera's built-in light if available.
+  </Step>
+
+  <Step title="Test the view">
+    Use the live preview in Klaus to verify the page is clear and readable.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Camera not detected
+
+- Ensure the camera is plugged in and recognized by your OS
+- On macOS, check System Settings > Privacy & Security > Camera
+- On Windows, check Device Manager for camera drivers
+- Try a different USB port
+
+### Image is rotated incorrectly
+
+- Klaus auto-rotates portrait images by default
+- Override by setting `camera_rotation` in config:
+  ```toml
+  camera_rotation = "90"  # or 180, 270, none
+  ```
+
+### Blurry or dark image
+
+- Increase ambient lighting
+- Clean the camera lens
+- Reduce camera_width/camera_height if your camera doesn't support 1080p
+- Check camera focus (some document cameras have manual focus rings)
+
+### Multiple cameras detected
+
+- Klaus lists all available cameras by name
+- Select the correct one in the setup wizard or settings
+- The camera_index in config.toml controls which camera is used (0 = first, 1 = second, etc.)
+
+## Next Steps
+
+- [API Keys](/setup/api-keys) - Get your API credentials
+- [First Run](/setup/first-run) - Complete the setup wizard

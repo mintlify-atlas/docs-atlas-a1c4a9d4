@@ -1,0 +1,324 @@
+---
+title: Camera Issues
+description: Troubleshooting document camera detection, rotation, and capture problems
+---
+
+## Camera Not Detected
+
+<Accordion title="Klaus says 'Cannot open camera at index 0'">
+**Error message:**
+```
+RuntimeError: Cannot open camera at index 0. Check that the document camera is connected.
+```
+
+**Causes:**
+1. Document camera not plugged in
+2. Camera in use by another application (Zoom, browser, etc.)
+3. Wrong camera index (if you have multiple cameras)
+4. USB connection issue
+
+**Solutions:**
+
+1. **Verify camera is connected:**
+   ```bash
+   # On macOS:
+   system_profiler SPCameraDataType
+   
+   # On Linux:
+   ls /dev/video*
+   ```
+
+2. **Close other applications using the camera** (Zoom, Skype, browser tabs with webcam access)
+
+3. **Try a different camera index** in `~/.klaus/config.toml`:
+   ```toml
+   camera_index = 1  # Try 1, 2, 3, etc.
+   ```
+
+4. **Re-run setup wizard** to enumerate and select the correct camera
+
+5. **Check USB connection** - try a different USB port or cable
+
+Reference: `camera.py:89-103`
+</Accordion>
+
+<Accordion title="How do I list available cameras?">
+Klaus provides a camera enumeration function. You can test it:
+
+```python
+python3 -c "from klaus.camera import enumerate_cameras; import json; print(json.dumps(enumerate_cameras(), indent=2))"
+```
+
+Example output:
+```json
+[
+  {
+    "index": 0,
+    "name": "FaceTime HD Camera",
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "index": 1,
+    "name": "USB Document Camera",
+    "width": 1920,
+    "height": 1080
+  }
+]
+```
+
+Set `camera_index` in `~/.klaus/config.toml` to the desired index.
+
+Reference: `camera.py:22-34`, `device_catalog.py`
+</Accordion>
+
+<Accordion title="Camera works in other apps but not Klaus">
+**On macOS:**
+
+Check camera permissions:
+1. System Settings > Privacy & Security > Camera
+2. Ensure your terminal app has camera access
+3. If not listed, try triggering the permission prompt by running Klaus
+
+**On Windows:**
+
+Klaus uses DirectShow backend (`cv2.CAP_DSHOW`). Some cameras require specific drivers:
+1. Install camera manufacturer's drivers
+2. Test with another OpenCV-based application
+3. Check Windows camera privacy settings
+
+Reference: `camera.py:19`
+</Accordion>
+
+## Camera Rotation Issues
+
+<Warning>
+**Auto-rotation behavior**
+
+Klaus detects portrait frames (height > width) and rotates 90° clockwise automatically when `camera_rotation = "auto"` (default).
+
+If your document camera produces landscape frames but the image appears rotated, override the setting.
+</Warning>
+
+<Accordion title="Image appears rotated or upside down">
+**Configuration:**
+
+Edit `~/.klaus/config.toml`:
+
+```toml
+# Auto-rotation (default): rotates portrait frames to landscape
+camera_rotation = "auto"
+
+# Disable rotation
+camera_rotation = "none"
+
+# Fixed rotation angles
+camera_rotation = "90"   # Rotate 90° clockwise
+camera_rotation = "180"  # Rotate 180°
+camera_rotation = "270"  # Rotate 90° counter-clockwise (270° CW)
+```
+
+**Example scenarios:**
+
+- **Document camera upside down**: Use `camera_rotation = "180"`
+- **Portrait frame incorrectly rotated**: Use `camera_rotation = "none"` to disable auto-rotation
+- **Landscape frame rotated 90°**: Use `camera_rotation = "270"` to counter-rotate
+
+Reference: `camera.py:37-56`, `config.py:45-48`
+</Accordion>
+
+<Accordion title="Auto-rotation log messages">
+When auto-rotation triggers, Klaus logs:
+
+```
+Auto-rotate: portrait frame detected (1080x1920), rotating 90 CW
+```
+
+If you see this and don't want rotation, set:
+```toml
+camera_rotation = "none"
+```
+
+Reference: `camera.py:50-55`
+</Accordion>
+
+## Camera Resolution Issues
+
+<Accordion title="Camera resolution doesn't match config">
+Klaus requests a specific resolution but the camera may not support it.
+
+**Default resolution:** 1920x1080
+
+**Actual resolution logged on start:**
+```
+Camera opened (device 0) at 1280x720 (requested 1920x1080)
+```
+
+If the actual resolution is lower than requested, the camera doesn't support that mode.
+
+**To change resolution:**
+
+Edit `~/.klaus/config.toml`:
+```toml
+camera_width = 1280
+camera_height = 720
+```
+
+**Common resolutions:**
+- 640x480 (VGA)
+- 1280x720 (720p)
+- 1920x1080 (1080p)
+- 3840x2160 (4K)
+
+Reference: `camera.py:73-110`, `config.py:41-43`
+</Accordion>
+
+<Accordion title="Low quality image sent to Claude">
+Klaus captures frames as JPEG with quality=85 by default.
+
+The capture method:
+```python
+def capture_base64_jpeg(self, quality: int = 85) -> str | None
+```
+
+**To verify capture quality**, check:
+1. Camera resolution (higher resolution = better quality)
+2. Lighting conditions (document cameras with built-in lights help)
+3. Page position (ensure full page visible and in focus)
+
+Klaus does not currently expose JPEG quality as a config option. The default (85) balances image quality with API payload size.
+
+Reference: `camera.py:147-153`
+</Accordion>
+
+## Camera Setup Recommendations
+
+<Accordion title="What document camera should I use?">
+Klaus works best with:
+
+1. **USB document camera / visualiser** (recommended)
+   - Example: PAKOTOO Document Camera (has built-in light)
+   - Amazon US: https://www.amazon.com/PAKOTOO-Document-Teachers-Classroom-Distance
+   - Amazon UK: https://www.amazon.co.uk/kitchbai-Visualiser-Teaching-Classroom-Chromebook
+
+2. **Phone on gooseneck mount** (~$10-15) pointed at reading surface
+   - Use phone as webcam via:
+     - **macOS + iPhone**: Continuity Camera (built-in, iOS 16+, macOS Ventura+)
+     - **macOS + Android**: Camo (free, 1080p)
+     - **Windows + Android**: DroidCam (free)
+     - **Windows + iPhone**: Camo (free, 1080p)
+
+Reference: `README.md:126-146`
+</Accordion>
+
+<Accordion title="Using phone as document camera">
+**Continuity Camera (macOS + iPhone):**
+
+No app installation needed (iOS 16+, macOS Ventura+):
+1. Ensure iPhone and Mac on same Wi-Fi / signed into same iCloud
+2. iPhone appears automatically as camera option in Klaus
+
+**Third-party apps (Camo, DroidCam):**
+
+1. Install app on phone and computer
+2. Connect via USB or Wi-Fi (follow app instructions)
+3. Phone appears as webcam in Klaus camera list
+4. Select the phone camera in Klaus settings or setup wizard
+
+Klaus auto-detects portrait orientation and rotates the image.
+
+Reference: `README.md:138-145`, `camera.py:50-55`
+</Accordion>
+
+## Camera Background Thread
+
+<Accordion title="Camera preview frozen or laggy">
+Klaus captures frames in a background daemon thread at ~30 fps.
+
+**Causes of lag:**
+1. **High CPU usage** - Check Activity Monitor / Task Manager
+2. **USB bandwidth** - Try a different USB port (use USB 3.0 if available)
+3. **Camera firmware** - Update document camera drivers
+
+**Debugging:**
+
+Check Klaus logs for camera errors:
+```bash
+klaus 2>&1 | grep -i camera
+```
+
+Look for:
+- "Camera opened" - Successful start
+- "Audio input status" warnings - May indicate USB issues
+- "Camera stopped" - Unexpected shutdown
+
+Reference: `camera.py:120-132`
+</Accordion>
+
+<Accordion title="Camera stops working mid-session">
+If the camera stops capturing frames:
+
+1. **USB disconnection** - Check cable and port
+2. **Power saving** - Disable USB selective suspend (Windows) or Energy Saver (macOS)
+3. **Camera firmware crash** - Power cycle the document camera
+
+**To restart camera without restarting Klaus:**
+
+Currently, you must restart Klaus. Camera hot-swapping is not supported.
+
+Reference: `camera.py:167-175`
+</Accordion>
+
+## Camera Data Privacy
+
+<Accordion title="Are camera images stored locally?">
+**No.** Klaus does not store full images.
+
+**What is stored:**
+- A short hash of each page capture (for deduplication)
+- Thumbnail images shown in the chat feed (stored in memory, cleared on session switch)
+
+**What is sent to APIs:**
+- Base64-encoded JPEG images sent to Claude Vision API
+- Images are not logged or saved to disk
+
+Reference: `README.md:272-278`, `camera.py:147-165`
+</Accordion>
+
+## Switching Cameras
+
+<Accordion title="How do I change cameras mid-session?">
+Klaus supports live camera switching via the Settings dialog:
+
+1. Click the settings button (gear icon) in Klaus
+2. Go to the "Camera" tab
+3. Select a different camera from the dropdown
+4. Changes apply immediately (no restart needed)
+
+If the new camera fails to open, Klaus automatically rolls back to the previous camera.
+
+**Persisted to config:** The new camera index is saved to `~/.klaus/config.toml`.
+
+Reference: `main.py:842-854`, `settings_dialog.py`, `device_switch.py`
+</Accordion>
+
+<Accordion title="Camera switch failed, Klaus rolled back">
+If you see an error dialog:
+```
+Failed to switch camera: Cannot open camera at index <N>
+```
+
+Klaus automatically reverts to the last working camera.
+
+**Causes:**
+1. Selected camera in use by another app
+2. Selected camera disconnected
+3. Camera requires driver not installed
+
+**Solution:**
+- Close other apps using the camera
+- Reconnect the camera
+- Try a different camera from the list
+
+Reference: `device_switch.py`, `main.py:839-854`
+</Accordion>

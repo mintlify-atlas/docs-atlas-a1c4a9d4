@@ -1,0 +1,488 @@
+---
+title: Audio Issues
+description: Troubleshooting microphone, voice activation, and TTS playback problems
+---
+
+## Microphone Issues
+
+<Accordion title="Klaus not detecting my microphone">
+**List available microphones:**
+
+```python
+python3 -c "import sounddevice as sd; print(sd.query_devices())"
+```
+
+Example output:
+```
+  0 Built-in Microphone, Core Audio (2 in, 0 out)
+> 1 Built-in Output, Core Audio (0 in, 2 out)
+  2 USB Audio Device, Core Audio (1 in, 0 out)
+```
+
+The `>` indicates the system default device.
+
+**To select a specific microphone:**
+
+Edit `~/.klaus/config.toml`:
+```toml
+mic_index = 0   # Built-in Microphone
+# mic_index = 2  # USB Audio Device
+# mic_index = -1 # System default (default)
+```
+
+Reference: `config.py:38`, `device_catalog.py`
+</Accordion>
+
+<Accordion title="Microphone level too low">
+Klaus uses the system default microphone with no automatic gain control.
+
+**Solutions:**
+
+1. **Increase system mic level:**
+   - **macOS**: System Settings > Sound > Input > Input volume
+   - **Windows**: Settings > System > Sound > Input device > Device properties > Volume
+
+2. **Adjust VAD RMS threshold** if your mic is inherently quiet:
+   ```toml
+   # Lower threshold to accept quieter speech (default: -45.0)
+   vad_min_rms_dbfs = -50.0
+   ```
+
+3. **Use push-to-talk mode** instead of voice activation to bypass VAD filtering
+
+Reference: `audio.py:404-412`
+</Accordion>
+
+<Accordion title="How do I switch microphones mid-session?">
+Klaus supports live microphone switching via the Settings dialog:
+
+1. Click the settings button (gear icon)
+2. Go to the "Microphone" tab
+3. Select a different mic from the dropdown
+4. Changes apply immediately (VAD stream restarts with new device)
+
+If the new mic fails to open, Klaus automatically rolls back to the previous mic.
+
+**Persisted to config:** The new mic index is saved to `~/.klaus/config.toml`.
+
+Reference: `main.py:856-867`, `settings_dialog.py`, `device_switch.py`
+</Accordion>
+
+<Accordion title="Audio input status warnings in logs">
+If you see:
+```
+Audio input status: <some flag>
+```
+
+This indicates a `sounddevice` callback status flag:
+- **Input overflow**: Audio buffer overrun (frames dropped)
+- **Input underflow**: Not enough data available
+
+Usually harmless, but if frequent:
+1. Close other audio-intensive applications
+2. Check CPU usage
+3. Try a different USB port for USB microphones
+
+Reference: `audio.py:72-73`, `audio.py:284-286`
+</Accordion>
+
+## Voice Activation (VAD) Issues
+
+<Warning>
+**Voice Activation uses WebRTC VAD with multi-stage filtering**
+
+Klaus applies several quality gates before sending audio to STT:
+1. WebRTC VAD (voiced vs unvoiced frames)
+2. Minimum duration check
+3. Voiced frame ratio check
+4. RMS loudness check (dBFS)
+5. Contiguous voiced run check
+
+If any gate fails, the audio is discarded and Klaus logs the reason.
+</Warning>
+
+<Accordion title="VAD not detecting my speech">
+**Symptoms:**
+- Klaus stays in "Idle" state when you speak
+- Log shows: `VAD: discarding low-voice utterance`
+
+**Solutions:**
+
+1. **Lower VAD sensitivity** (0-3, lower = less aggressive filtering):
+   ```toml
+   vad_sensitivity = 2  # Default is 3
+   ```
+
+2. **Reduce minimum thresholds:**
+   ```toml
+   vad_min_duration = 0.3         # Default: 0.5s
+   vad_min_voiced_ratio = 0.20    # Default: 0.28
+   vad_min_voiced_frames = 5      # Default: 8
+   vad_min_rms_dbfs = -50.0       # Default: -45.0
+   vad_min_voiced_run_frames = 4  # Default: 6
+   ```
+
+3. **Check microphone level** (see "Microphone level too low" above)
+
+4. **Use push-to-talk mode** as a workaround
+
+Reference: `audio.py:105-131`, `config.py:62-80`
+</Accordion>
+
+<Accordion title="VAD triggering on background noise">
+**Symptoms:**
+- Klaus enters "Listening" state when no one is speaking
+- Fan noise, keyboard typing, or room noise triggers VAD
+
+**Solutions:**
+
+1. **Increase VAD sensitivity:**
+   ```toml
+   vad_sensitivity = 3  # Maximum filtering
+   ```
+
+2. **Increase minimum thresholds:**
+   ```toml
+   vad_min_duration = 0.7         # Require longer speech
+   vad_min_voiced_ratio = 0.35    # Require more voiced content
+   vad_min_voiced_frames = 10     # More voiced frames
+   vad_min_rms_dbfs = -40.0       # Higher loudness threshold
+   vad_min_voiced_run_frames = 8  # Longer contiguous voiced run
+   ```
+
+3. **Reduce room noise:**
+   - Use a directional microphone
+   - Enable noise cancellation in system settings (if available)
+   - Move away from fans, HVAC vents, mechanical keyboards
+
+Reference: `audio.py:363-415`
+</Accordion>
+
+<Accordion title="Understanding VAD discard reasons">
+Klaus logs structured discard events. Check logs for:
+
+```bash
+klaus 2>&1 | grep "VAD: discarding"
+```
+
+**Discard reasons:**
+
+| Reason | Meaning | Fix |
+|--------|---------|-----|
+| `vad_short_duration` | Utterance < `vad_min_duration` | Lower `vad_min_duration` |
+| `vad_low_voiced_frames` | Fewer than `vad_min_voiced_frames` | Lower `vad_min_voiced_frames` |
+| `vad_low_voiced_ratio` | Voiced ratio < `vad_min_voiced_ratio` | Lower `vad_min_voiced_ratio` |
+| `quality_short_voiced_run` | Max contiguous run < `vad_min_voiced_run_frames` | Lower `vad_min_voiced_run_frames` |
+| `quality_low_rms` | Loudness < `vad_min_rms_dbfs` | Lower `vad_min_rms_dbfs` or increase mic level |
+
+**Log format:**
+```
+STT guard event=vad_discard reason=quality_low_rms session=<id> vad_discarded=5 quality_gate_discarded=3
+```
+
+Reference: `audio.py:363-415`, `main.py:418-432`
+</Accordion>
+
+<Accordion title="VAD silence timeout too short/long">
+Klaus finalizes speech after a period of silence.
+
+**Default:** 1.5 seconds
+
+**To adjust:**
+```toml
+# Shorter timeout (faster finalization, may cut off pauses)
+vad_silence_timeout = 1.0
+
+# Longer timeout (wait for longer pauses, slower response)
+vad_silence_timeout = 2.0
+```
+
+Reference: `config.py:64`, `audio.py:126`
+</Accordion>
+
+## Push-to-Talk Issues
+
+<Accordion title="Push-to-talk not recording">
+**Symptoms:**
+- Press and hold F2 (or configured hotkey), but Klaus stays in "Idle"
+- Release key, no transcription appears
+
+**Causes:**
+
+1. **Global hotkey not working** (see [macOS Permissions](/troubleshooting/macos-permissions))
+2. **Wrong input mode** - Klaus is in voice-activation mode
+3. **Microphone not accessible**
+
+**Solutions:**
+
+1. **Verify input mode:**
+   - Check status widget shows "Push-to-Talk"
+   - Toggle mode with `toggle_key` or mode button
+
+2. **Use in-app hotkey** if global hotkey fails:
+   - Focus Klaus window
+   - Press and hold configured key
+
+3. **Check logs:**
+   ```bash
+   klaus 2>&1 | grep "Recording started"
+   ```
+
+   Expected output:
+   ```
+   Recording started (mic: Built-in Microphone, 16000 Hz)
+   ```
+
+Reference: `main.py:734-759`, `audio.py:36-99`
+</Accordion>
+
+<Accordion title="Recording stopped (no audio captured)">
+If you see:
+```
+Recording stopped (no audio captured)
+```
+
+You pressed and released the PTT key too quickly (no audio frames buffered).
+
+**Solution:** Hold the key longer (at least 0.3-0.5 seconds).
+
+Reference: `audio.py:77-95`
+</Accordion>
+
+## Text-to-Speech (TTS) Issues
+
+<Accordion title="No audio output when Klaus speaks">
+**Symptoms:**
+- Klaus transitions to "Speaking" state
+- No audio plays
+- Logs show TTS generation but no playback errors
+
+**Causes:**
+
+1. **System output muted** - Check system volume
+2. **Wrong output device selected** - Klaus uses system default
+3. **Audio device in use** - Close other apps using audio output
+
+**Solutions:**
+
+1. **Check system audio:**
+   - Ensure volume not muted
+   - Play a test sound from system settings
+
+2. **Verify default output device:**
+   ```python
+   python3 -c "import sounddevice as sd; print(sd.query_devices())"
+   ```
+
+   Look for the device marked with `>` (default output).
+
+3. **Test TTS independently:**
+   - Click replay button on a previous response in chat
+   - If replay works, the issue is with live synthesis
+
+Reference: `tts.py`, `audio.py:452-486`
+</Accordion>
+
+<Accordion title="TTS playback crackling or stuttering (macOS)">
+**Klaus uses a persistent `sd.OutputStream` to avoid CoreAudio latency.**
+
+The VAD mic stream is suspended during TTS playback to free the audio device.
+
+**If crackling persists:**
+
+1. **Check sample rate mismatch:**
+   - TTS output is 24000 Hz
+   - Ensure output device supports 24 kHz or has good resampling
+
+2. **Close competing audio apps:**
+   - DAWs, music production software, voice chat apps
+
+3. **Increase TTS latency** (code change required):
+   - Klaus uses `latency='high'` on macOS by default
+   - Further tuning requires editing `tts.py`
+
+Reference: `tts.py`, `audio.py:245-276`
+</Accordion>
+
+<Accordion title="TTS voice or speed settings not applying">
+**Voice and speed are set in `~/.klaus/config.toml`:**
+
+```toml
+# TTS voice (default: cedar)
+# Options: coral, nova, alloy, ash, ballad, echo, fable, onyx, sage, shimmer, verse, cedar, marin
+voice = "nova"
+
+# TTS playback speed 0.25-4.0 (default: 1.0)
+tts_speed = 1.2
+```
+
+**After editing, restart Klaus** or change settings via the Settings dialog (which auto-reloads).
+
+Reference: `config.py:50-55`, `config.py:192-196`
+</Accordion>
+
+<Accordion title="TTS cuts off mid-sentence">
+**Causes:**
+
+1. **User interrupted** - Pressed stop button or started speaking (in voice-activation mode)
+2. **Network error** - OpenAI TTS API timeout or connection lost
+3. **Audio device disconnected**
+
+**Check logs:**
+```bash
+klaus 2>&1 | grep -i "tts\|speaking"
+```
+
+Look for:
+- "Stop requested via UI" - User clicked stop
+- API error messages - Network or OpenAI issues
+
+Reference: `main.py:833-837`, `tts.py`
+</Accordion>
+
+## Speech-to-Text (STT) Issues
+
+<Accordion title="Transcription is inaccurate">
+Klaus uses **Moonshine Voice** (local STT) with configurable model size.
+
+**Default model:** `medium` (245M params, ~300ms latency)
+
+**To improve accuracy, use a larger model:**
+
+Edit `~/.klaus/config.toml`:
+```toml
+stt_moonshine_model = "medium"  # Options: tiny, small, medium
+```
+
+**Trade-offs:**
+- `tiny`: Fastest, least accurate
+- `small`: Balanced
+- `medium`: Slower, most accurate
+
+The model is downloaded on first use to `~/.cache/moonshine/`.
+
+Reference: `config.py:83-86`, `stt.py`, `README.md:9`
+</Accordion>
+
+<Accordion title="STT language not recognized">
+Moonshine supports multiple languages.
+
+**Default:** `en` (English)
+
+**To change language:**
+```toml
+stt_moonshine_language = "es"  # Spanish
+# See Moonshine documentation for supported language codes
+```
+
+Reference: `config.py:85`
+</Accordion>
+
+<Accordion title="STT processing is slow">
+Moonshine runs locally on CPU.
+
+**Expected latency:** ~300ms for `medium` model
+
+**If slower:**
+
+1. **Use smaller model:**
+   ```toml
+   stt_moonshine_model = "small"  # or "tiny"
+   ```
+
+2. **Close CPU-intensive apps** to free resources
+
+3. **Check CPU usage** during transcription:
+   - Activity Monitor (macOS)
+   - Task Manager (Windows)
+
+Reference: `README.md:9`, `stt.py`
+</Accordion>
+
+## Audio Device Switching
+
+<Accordion title="Live microphone switch failed">
+If Klaus shows an error when switching mics:
+
+```
+Failed to switch microphone: <error>
+```
+
+Klaus automatically rolls back to the previous mic.
+
+**Causes:**
+1. New mic in use by another app
+2. New mic requires driver not installed
+3. Invalid device index
+
+**Solution:**
+- Close apps using the mic
+- Reconnect the mic
+- Select a different mic from the list
+
+Reference: `device_switch.py`, `main.py:856-867`
+</Accordion>
+
+<Accordion title="VAD stream suspend/resume errors">
+Klaus suspends the VAD mic stream before TTS playback and resumes after.
+
+**If you see errors:**
+```
+Failed to reopen mic stream: <error>
+```
+
+The mic became unavailable during TTS playback.
+
+**Causes:**
+1. USB mic disconnected
+2. System switched default device
+3. Mic claimed by another app
+
+**Recovery:**
+- Klaus logs the error but continues
+- Reconnect the mic
+- Toggle input mode (switches to PTT and back) to reinitialize VAD
+
+Reference: `audio.py:245-276`
+</Accordion>
+
+## Advanced Audio Debugging
+
+<Accordion title="sounddevice backend issues">
+Klaus uses `sounddevice` which wraps PortAudio.
+
+**On macOS:** Core Audio backend
+**On Windows:** WASAPI backend
+**On Linux:** ALSA backend
+
+**To debug backend issues:**
+
+```python
+python3 -c "import sounddevice as sd; print(sd.query_hostapis())"
+```
+
+**Common issues:**
+- **Sample rate mismatch**: Ensure device supports 16 kHz (mic) and 24 kHz (speaker)
+- **Exclusive mode**: Close apps with exclusive audio access
+- **ASIO drivers (Windows)**: Not supported by Klaus; use WASAPI-compatible devices
+
+Reference: `audio.py`
+</Accordion>
+
+<Accordion title="Enable debug-level audio logs">
+Edit `~/.klaus/config.toml`:
+
+```toml
+log_level = "DEBUG"
+```
+
+Restart Klaus. Audio logs will include:
+- VAD frame-by-frame voiced/unvoiced decisions
+- RMS levels
+- Discard reasons
+- Stream lifecycle events
+
+**Warning:** DEBUG mode is very verbose.
+
+Reference: `config.py:115-117`
+</Accordion>

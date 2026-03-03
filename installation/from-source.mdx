@@ -1,0 +1,149 @@
+---
+title: 'Build from Source'
+description: 'Install Klaus from source code'
+---
+
+## Prerequisites
+
+Before building from source, ensure you have the required dependencies for your platform.
+
+<CodeGroup>
+
+```bash macOS
+# Install Python 3.11-3.13 and PortAudio
+brew install python@3.13 portaudio
+```
+
+```bash Windows
+# Install Python 3.11-3.13 from python.org
+# Download and install Visual C++ Build Tools
+# https://visualstudio.microsoft.com/visual-cpp-build-tools/
+```
+
+</CodeGroup>
+
+<Note>
+  **Python Version**
+  
+  Klaus requires Python 3.11, 3.12, or 3.13. Python 3.14 on macOS 26 has known compatibility issues with global hotkeys.
+</Note>
+
+<Warning>
+  **Windows: Visual C++ Build Tools Required**
+  
+  The `webrtcvad` package requires compilation on Windows. Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) before proceeding.
+</Warning>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/bgigurtsis/Klaus.git
+    cd Klaus
+    ```
+  </Step>
+
+  <Step title="Install in development mode">
+    ```bash
+    pip install -e .
+    ```
+
+    This installs Klaus in editable mode, allowing you to modify the source code and see changes immediately.
+
+    The installation includes all required dependencies:
+    - **Core**: anthropic, openai, PyQt6
+    - **Vision**: opencv-python, Pillow, numpy
+    - **Audio**: sounddevice, webrtcvad, moonshine-voice
+    - **Search**: tavily-python
+    - **Utilities**: python-dotenv, pynput, keyring (macOS)
+  </Step>
+
+  <Step title="Launch Klaus">
+    ```bash
+    klaus
+    ```
+
+    The `klaus` command is now available in your environment and points to the local source.
+  </Step>
+</Steps>
+
+## Development Setup
+
+If you're developing Klaus, install optional development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+This adds:
+- `pytest>=8.0.0` for running tests
+
+### Running Tests
+
+```bash
+pytest
+```
+
+## Project Structure
+
+The source code is organized as follows:
+
+```
+Klaus/
+├── klaus/                  # Main package
+│   ├── main.py            # Entry point
+│   ├── config.py          # Configuration management
+│   ├── brain.py           # Claude vision + reasoning
+│   ├── audio.py           # Audio recording (PTT, VAD)
+│   ├── camera.py          # OpenCV camera capture
+│   ├── stt.py             # Moonshine local STT
+│   ├── tts.py             # OpenAI text-to-speech
+│   ├── query_router.py    # Intent classification
+│   ├── memory.py          # SQLite persistence
+│   ├── notes.py           # Obsidian integration
+│   ├── search.py          # Tavily web search
+│   └── ui/                # PyQt6 interface
+│       ├── main_window.py
+│       ├── setup_wizard.py
+│       ├── settings_dialog.py
+│       ├── chat_widget.py
+│       └── ...
+├── pyproject.toml         # Project metadata & dependencies
+└── README.md
+```
+
+## Updating Your Installation
+
+Since you're using editable mode (`pip install -e .`):
+
+1. Pull the latest changes:
+   ```bash
+   git pull origin main
+   ```
+
+2. If dependencies changed, reinstall:
+   ```bash
+   pip install -e .
+   ```
+
+## Platform-Specific Notes
+
+### macOS
+
+- **AVFoundation**: Automatically installed via `pyobjc-framework-AVFoundation` for native camera names
+- **Keychain**: API keys are stored in Apple Keychain via the `keyring` package
+- **App Icon**: Uses `pyobjc` to set dock icon and app name
+
+### Windows
+
+- **API Keys**: Stored in `~/.klaus/config.toml` (no keychain integration)
+- **Dark Title Bar**: Uses DWM API for dark window chrome
+- **Camera Backend**: Uses DirectShow (`cv2.CAP_DSHOW`)
+
+## Next Steps
+
+After building from source:
+- [Camera Setup](/setup/camera-setup) - Configure your document camera
+- [API Keys](/setup/api-keys) - Obtain required API keys
+- [First Run](/setup/first-run) - Complete the setup wizard

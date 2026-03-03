@@ -1,0 +1,174 @@
+---
+title: Text-to-Speech (TTS)
+description: Neural text-to-speech using OpenAI's gpt-4o-mini-tts with streaming playback
+---
+
+## Overview
+
+Klaus uses **OpenAI's gpt-4o-mini-tts** model for high-quality neural text-to-speech. Responses are batched into sentences and streamed for low-latency playback.
+
+## TextToSpeech Class
+
+The `TextToSpeech` class converts text to speech with sentence-level streaming and persistent audio output.
+
+### Constructor
+
+```python
+from klaus.tts import TextToSpeech
+import klaus.config as config
+
+tts = TextToSpeech(settings=None)
+```
+
+<ParamField path="settings" type="config.RuntimeSettings | None" default="None">
+  Optional runtime settings. If `None`, reads from `config.get_runtime_settings()`.
+</ParamField>
+
+### Methods
+
+#### `speak(text: str, on_sentence_start: callable = None) -> None`
+
+Synthesize and play text. Batches into sentences for low-latency playback.
+
+<ParamField path="text" type="str" required>
+  The full text to speak
+</ParamField>
+
+<ParamField path="on_sentence_start" type="callable" default="None">
+  Optional callback `(sentence_index: int, sentence_text: str)` fired before each sentence begins playback
+</ParamField>
+
+**Example:**
+
+```python
+from klaus.tts import TextToSpeech
+
+tts = TextToSpeech()
+
+def on_sentence(idx, text):
+    print(f"Sentence {idx}: {text[:50]}...")
+
+tts.speak(
+    "Hello. This is Klaus speaking.",
+    on_sentence_start=on_sentence
+)
+```
+
+#### `speak_streaming(sentence_queue: queue.Queue[str | None]) -> None`
+
+Play sentences as they arrive from a queue. Reads sentences from `sentence_queue`, synthesizes each via the API, and plays them sequentially. `None` in the queue signals completion.
+
+<ParamField path="sentence_queue" type="queue.Queue[str | None]" required>
+  Queue of sentences to synthesize and play. Push `None` to signal end of stream.
+</ParamField>
+
+**Example:**
+
+```python
+import queue
+from klaus.tts import TextToSpeech
+
+tts = TextToSpeech()
+sentence_queue = queue.Queue()
+
+# Producer thread
+sentence_queue.put("First sentence.")
+sentence_queue.put("Second sentence.")
+sentence_queue.put(None)  # Signal completion
+
+tts.speak_streaming(sentence_queue)
+```
+
+#### `synthesize_to_wav(text: str) -> bytes`
+
+Synthesize text to a single WAV buffer without playing it.
+
+<ParamField path="text" type="str" required>
+  Text to synthesize
+</ParamField>
+
+**Returns:** WAV-encoded audio bytes
+
+**Example:**
+
+```python
+from klaus.tts import TextToSpeech
+
+tts = TextToSpeech()
+wav_bytes = tts.synthesize_to_wav("Hello, world!")
+
+with open("output.wav", "wb") as f:
+    f.write(wav_bytes)
+```
+
+#### `stop() -> None`
+
+Immediately stop playback and close the audio stream.
+
+**Example:**
+
+```python
+import threading
+from klaus.tts import TextToSpeech
+
+tts = TextToSpeech()
+
+def speak_in_background():
+    tts.speak("This is a long sentence that can be interrupted.")
+
+thread = threading.Thread(target=speak_in_background)
+thread.start()
+
+# Later, interrupt playback
+tts.stop()
+```
+
+#### `reload_client(settings: config.RuntimeSettings | None = None) -> None`
+
+Recreate the OpenAI client to pick up API key changes from `config.reload()`.
+
+<ParamField path="settings" type="config.RuntimeSettings | None" default="None">
+  New runtime settings. If `None`, reads from `config.get_runtime_settings()`.
+</ParamField>
+
+## Configuration
+
+TTS settings are configured in `~/.klaus/config.toml`:
+
+```toml
+[tts]
+voice = "cedar"        # alloy, ash, ballad, coral, cedar, sage, shimmer, verse
+speed = 1.0            # 0.25 to 4.0
+model = "gpt-4o-mini-tts"
+```
+
+### Available Voices
+
+- `alloy`
+- `ash`
+- `ballad`
+- `coral`
+- `cedar` (default)
+- `sage`
+- `shimmer`
+- `verse`
+
+## Implementation Details
+
+- **Sentence batching**: Responses are split on sentence boundaries (`.`, `!`, `?`) and synthesized in chunks up to 4000 characters.
+- **Streaming playback**: Audio begins playing as soon as the first sentence is synthesized.
+- **Persistent output stream**: A single `sounddevice.OutputStream` is reused across chunks to avoid macOS CoreAudio crackling.
+- **High latency mode on macOS**: Uses `latency='high'` on macOS for stable playback.
+- **Thread-safe**: Synthesis and playback run in background threads.
+
+## Constants
+
+```python
+SENTENCE_SPLIT = re.compile(r'(?<=[.!?])\s+')
+MAX_CHUNK_CHARS = 4000
+WRITE_BLOCK_FRAMES = 2048
+```
+
+## Source Reference
+
+See `klaus/tts.py` for the full implementation.

@@ -1,0 +1,288 @@
+---
+title: Common Issues
+description: Solutions to frequently encountered problems with Klaus
+---
+
+## Python Version Compatibility
+
+<Warning>
+**macOS 26 + Python 3.14 Combination**
+
+This specific combination causes `pynput` global hotkeys to crash due to a known issue in the Carbon keyboard APIs (HIToolbox dispatch queue assertion). Klaus automatically disables global hotkeys on this platform and keeps in-app hotkeys active.
+
+**Solution**: Use Python 3.13 for stable global hotkeys, or set `KLAUS_FORCE_GLOBAL_HOTKEYS=1` to force-enable (may crash).
+
+Reference: `main.py:11-33`
+</Warning>
+
+<Accordion title="How do I check my Python version?">
+Run the following command:
+```bash
+python3 --version
+```
+
+Klaus requires Python 3.11-3.13. On macOS 26, use Python 3.13 specifically to avoid hotkey issues.
+</Accordion>
+
+<Accordion title="Homebrew installed the wrong Python version">
+If you're on macOS and the Homebrew formula installed Python 3.14, you can force Python 3.13:
+
+```bash
+brew install python@3.13 portaudio
+brew unlink klaus
+brew install --build-from-source klaus
+```
+</Accordion>
+
+## Hotkey Issues
+
+<Accordion title="Global hotkeys not working">
+Klaus uses two parallel hotkey systems:
+
+1. **Qt in-app hotkeys** - Work when Klaus window is focused (no permissions needed)
+2. **pynput global hotkeys** - Work system-wide but require macOS Accessibility permission
+
+**On macOS:**
+- macOS prompts for Accessibility (input monitoring) permission on first launch
+- If denied, global hotkeys won't work, but in-app hotkeys still function
+- To grant permission later: System Settings > Privacy & Security > Accessibility > Add your Terminal app
+
+**macOS F-key conflict:**
+F-keys trigger system actions by default (F3 = Mission Control). Solutions:
+- Press Fn+key (e.g., Fn+F3)
+- Enable "Use F1, F2, etc. keys as standard function keys" in System Settings > Keyboard
+- Change the toggle key in `~/.klaus/config.toml`:
+  ```toml
+  toggle_key = "F4"  # or any other key
+  ```
+
+Reference: `main.py:436-517`
+</Accordion>
+
+<Accordion title="Push-to-talk key not responding">
+Check your configuration in `~/.klaus/config.toml`:
+
+```toml
+hotkey = "F2"  # Push-to-talk key
+toggle_key = "§"  # Mode toggle (macOS default)
+# Or on Windows:
+# toggle_key = "F3"
+```
+
+For macOS ISO keyboards with shifted-key variants (e.g., ± → §), Klaus automatically maps these. See `main.py:45-99` for the mapping logic.
+</Accordion>
+
+## Setup Wizard Issues
+
+<Accordion title="Setup wizard keeps appearing">
+The setup wizard runs when `setup_complete = false` in `config.toml`. If you close the wizard without completing all steps, Klaus exits.
+
+**To skip the wizard** (if you've already configured manually):
+
+Edit `~/.klaus/config.toml` and add:
+```toml
+setup_complete = true
+```
+
+Reference: `config.py:665-667`, `main.py:322-338`
+</Accordion>
+
+<Accordion title="API key validation fails">
+Klaus validates keys by format (prefix + length), not by live API calls.
+
+**Expected formats:**
+- Anthropic: starts with `sk-ant-`, minimum length
+- OpenAI: starts with `sk-`, minimum length  
+- Tavily: alphanumeric API key
+
+Keys are stored in:
+- **macOS**: Apple Keychain (auto-migrates from legacy plaintext)
+- **Windows**: `~/.klaus/config.toml` under `[api_keys]`
+
+Fallback order (all platforms):
+1. Environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`)
+2. Apple Keychain (macOS only)
+3. `~/.klaus/config.toml` `[api_keys]` section
+
+Reference: `config.py:527-548`, `secrets_store.py`
+</Accordion>
+
+## Input Mode Issues
+
+<Accordion title="Voice activation triggering on background noise">
+Klaus uses WebRTC VAD with multi-stage filtering. If false triggers occur frequently, tune these settings in `~/.klaus/config.toml`:
+
+```toml
+# VAD sensitivity 0-3 (higher = more aggressive noise filtering)
+vad_sensitivity = 3
+
+# Seconds of silence before finalizing
+vad_silence_timeout = 1.5
+
+# Minimum utterance duration (seconds)
+vad_min_duration = 0.5
+
+# Minimum voiced-frame ratio (0.0-1.0)
+vad_min_voiced_ratio = 0.28
+
+# Minimum voiced 30ms frames
+vad_min_voiced_frames = 8
+
+# Minimum RMS loudness in dBFS (higher = stricter)
+vad_min_rms_dbfs = -45.0
+
+# Minimum contiguous voiced run of 30ms frames
+vad_min_voiced_run_frames = 6
+```
+
+**Increase `vad_min_rms_dbfs`** (e.g., to `-40.0`) to reject quieter background noise.
+
+**Increase `vad_min_voiced_run_frames`** (e.g., to `8` or `10`) to require longer continuous speech.
+
+Reference: `audio.py:102-155`, `config.py:62-80`
+</Accordion>
+
+<Accordion title="Voice activation not detecting speech">
+If Klaus isn't picking up your voice:
+
+1. **Lower sensitivity** - Change `vad_sensitivity` from `3` to `2` or `1`
+2. **Reduce minimum thresholds**:
+   ```toml
+   vad_min_duration = 0.3
+   vad_min_voiced_ratio = 0.20
+   vad_min_rms_dbfs = -50.0
+   ```
+3. **Check microphone level** - Ensure your mic input volume is adequate in system settings
+4. **Use push-to-talk mode** - Toggle with the mode button or `toggle_key`
+
+Reference: `audio.py:363-415`
+</Accordion>
+
+<Accordion title="How do I switch between voice activation and push-to-talk?">
+- **Default**: Voice activation
+- **Toggle methods**:
+  - Press the toggle key (default `§` on macOS, `F3` on Windows)
+  - Click the mode toggle button in the Klaus UI
+
+Set the default mode in `~/.klaus/config.toml`:
+```toml
+input_mode = "voice_activation"  # or "push_to_talk"
+```
+
+Reference: `main.py:519-554`
+</Accordion>
+
+## Configuration File Issues
+
+<Accordion title="Invalid TOML syntax error">
+If Klaus logs a TOML decode error, your `~/.klaus/config.toml` has syntax issues.
+
+**Common mistakes:**
+- Missing quotes around strings with spaces
+- Incorrect escape sequences (use `\\` for backslash, `\"` for quote)
+- Mismatched brackets
+
+Klaus falls back to defaults when TOML is invalid. Fix the syntax or delete the file to regenerate the template.
+
+Reference: `config.py:133-143`
+</Accordion>
+
+<Accordion title="Settings not persisting after restart">
+Verify that `~/.klaus/config.toml` exists and is writable:
+
+```bash
+ls -la ~/.klaus/config.toml
+```
+
+If the file is read-only:
+```bash
+chmod 644 ~/.klaus/config.toml
+```
+
+Reference: `config.py:17-20`
+</Accordion>
+
+## Performance Issues
+
+<Accordion title="High latency from question to first spoken word">
+Expected end-to-end latency: **2-4 seconds** (STT + Claude + first TTS chunk)
+
+If you're seeing >5 seconds:
+
+1. **Check network connection** - Claude API calls require stable internet
+2. **Router timeout** - The query router has a 350ms timeout for LLM classification. Increase if needed:
+   ```toml
+   router_timeout_ms = 500
+   ```
+3. **Disable query router** - For debugging, disable intelligent routing:
+   ```toml
+   enable_query_router = false
+   ```
+
+Reference: `README.md:164`, `config.py:97`
+</Accordion>
+
+<Accordion title="TTS playback crackling on macOS">
+Klaus uses a single persistent `sd.OutputStream` per session to avoid CoreAudio latency from repeated stream creation.
+
+The VAD mic stream is suspended during TTS playback with `suspend_stream()` and resumed afterward.
+
+If crackling persists:
+- Check system audio settings for sample rate mismatches
+- Ensure no other apps are competing for audio device access
+
+Reference: `tts.py`, `audio.py:245-276`
+</Accordion>
+
+## Cost and API Usage
+
+<Accordion title="Unexpected API costs">
+**Typical costs:**
+- 10 questions: ~$0.05
+- 50 questions: ~$0.25
+- 100 questions/day: ~$2.50-$3.50/day
+
+**Largest cost driver**: Claude Sonnet 4.6 (vision + context window)
+
+**To reduce costs:**
+- Use a cheaper model in `config.toml` (requires manual edit, not in settings UI):
+  ```toml
+  # Note: This setting is not currently exposed in config.toml template
+  # The model is hardcoded in config.py as CLAUDE_MODEL = "claude-sonnet-4-6"
+  ```
+- STT is free (runs locally via Moonshine)
+- TTS costs $0.015/min of generated audio
+
+Reference: `README.md:166-172`, `config.py:180`
+</Accordion>
+
+## Database and Session Issues
+
+<Accordion title="How do I reset all sessions and start fresh?">
+Delete the SQLite database:
+
+```bash
+rm ~/.klaus/klaus.db
+```
+
+Klaus will recreate it on next launch with a fresh "Untitled Session".
+
+**Note**: Images are not stored; only a short hash of each page capture is kept.
+
+Reference: `README.md:272-278`, `config.py:19`
+</Accordion>
+
+<Accordion title="Session history not loading">
+Check if the database file exists and is readable:
+
+```bash
+ls -la ~/.klaus/klaus.db
+```
+
+If corrupted, rename the old database and let Klaus create a new one:
+```bash
+mv ~/.klaus/klaus.db ~/.klaus/klaus.db.backup
+```
+
+Reference: `memory.py`
+</Accordion>

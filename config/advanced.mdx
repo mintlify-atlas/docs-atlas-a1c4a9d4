@@ -1,0 +1,368 @@
+---
+title: "Advanced Settings"
+description: "VAD sensitivity, query routing, logging, and advanced configuration"
+---
+
+Advanced settings control voice activity detection (VAD), query routing behavior, and logging. These settings are typically edited directly in `config.toml`.
+
+## Voice Activity Detection (VAD)
+
+Klaus uses WebRTC VAD with multi-stage filtering to detect when you're speaking and reject background noise.
+
+### VAD Sensitivity
+
+<ParamField path="vad_sensitivity" type="integer" default="3">
+  WebRTC VAD sensitivity level for noise filtering.
+  
+  **Valid range**: `0` to `3`
+  - `0` = Least aggressive (accepts more background noise)
+  - `1` = Low sensitivity
+  - `2` = Medium sensitivity
+  - `3` = Most aggressive noise filtering (default, recommended)
+  
+  Higher values reduce false triggers from background noise but may miss quiet speech.
+</ParamField>
+
+<ParamField path="vad_silence_timeout" type="float" default="1.5">
+  Seconds of silence before voice activation finalizes your question.
+  
+  **Typical range**: `1.0` to `3.0` seconds
+  
+  - Lower values finalize faster but may cut off slow speakers
+  - Higher values wait longer for you to continue speaking
+</ParamField>
+
+### VAD Quality Gates
+
+These settings filter out low-quality audio before it reaches STT:
+
+<ParamField path="vad_min_duration" type="float" default="0.5">
+  Minimum utterance duration in seconds.
+  
+  Audio shorter than this is rejected as noise. Helps filter out brief background sounds.
+</ParamField>
+
+<ParamField path="vad_min_voiced_ratio" type="float" default="0.28">
+  Minimum ratio of voiced frames to total frames.
+  
+  **Range**: `0.0` to `1.0`
+  
+  An utterance must have at least this fraction of frames classified as "voiced" by WebRTC VAD. Helps reject sustained background hum or fan noise.
+</ParamField>
+
+<ParamField path="vad_min_voiced_frames" type="integer" default="8">
+  Minimum number of voiced 30ms frames in an utterance.
+  
+  Utterances with fewer voiced frames are rejected. Works with `vad_min_voiced_ratio` to filter noise.
+</ParamField>
+
+<ParamField path="vad_min_rms_dbfs" type="float" default="-45.0">
+  Minimum RMS loudness in dBFS (decibels relative to full scale).
+  
+  **Typical range**: `-60.0` to `-30.0`
+  
+  - `-60.0` = Very quiet (accepts almost everything)
+  - `-45.0` = Moderate loudness gate (default)
+  - `-30.0` = Loud (requires clear, loud speech)
+  
+  Higher (less negative) values are stricter. This is a secondary gate that runs after WebRTC VAD checks.
+</ParamField>
+
+<ParamField path="vad_min_voiced_run_frames" type="integer" default="6">
+  Minimum length of the longest contiguous run of voiced frames.
+  
+  The utterance must contain at least one contiguous sequence of voiced frames of this length. Helps reject choppy noise that WebRTC VAD might accept.
+</ParamField>
+
+### VAD Configuration Example
+
+```toml config.toml
+# Stricter VAD for noisy environments
+vad_sensitivity = 3
+vad_silence_timeout = 2.0
+vad_min_duration = 0.8
+vad_min_voiced_ratio = 0.35
+vad_min_voiced_frames = 10
+vad_min_rms_dbfs = -40.0
+vad_min_voiced_run_frames = 8
+```
+
+<Tip>
+  If Klaus triggers on background noise, increase `vad_sensitivity`, `vad_min_rms_dbfs`, and `vad_min_voiced_ratio`. If Klaus misses quiet speech, decrease these values.
+</Tip>
+
+## Query Router
+
+Klaus uses an intelligent query router to classify questions and decide what context (image, history, memory, notes) to include.
+
+<ParamField path="enable_query_router" type="boolean" default="true">
+  Enable intelligent query routing.
+  
+  - `true`: Router classifies each question and optimizes context (default, recommended)
+  - `false`: All questions get full context (slower, more expensive, may reduce quality)
+</ParamField>
+
+### Router Model
+
+<ParamField path="router_model" type="string" default="claude-haiku-4-5">
+  Claude model used for ambiguous intent classification.
+  
+  The router uses local heuristics for most questions. Only uncertain classifications invoke this model.
+  
+  **Options**: Any Anthropic Claude model, e.g.:
+  - `claude-haiku-4-5` (default, fast and cheap)
+  - `claude-sonnet-4-6` (more accurate, slower, more expensive)
+</ParamField>
+
+### Router Timeouts
+
+<ParamField path="router_timeout_ms" type="integer" default="350">
+  LLM router call timeout in milliseconds.
+  
+  If the router model doesn't respond within this time, Klaus falls back to the default route.
+  
+  **Typical range**: `200` to `1000` ms
+</ParamField>
+
+<ParamField path="router_max_tokens" type="integer" default="80">
+  Maximum output tokens for LLM router classification.
+  
+  The router only needs a brief classification response. Keep this low to reduce latency and cost.
+</ParamField>
+
+### Router Confidence Thresholds
+
+<ParamField path="router_local_confidence_threshold" type="float" default="0.78">
+  Minimum confidence for local heuristic routing to skip LLM call.
+  
+  **Range**: `0.0` to `1.0`
+  
+  If local heuristics produce a confidence score above this threshold, the LLM router is not invoked.
+  
+  - Higher values → more LLM router calls (slower, more accurate)
+  - Lower values → more local routing (faster, cheaper)
+</ParamField>
+
+<ParamField path="router_local_margin_threshold" type="float" default="0.18">
+  Minimum margin between top two local route scores to skip LLM call.
+  
+  **Range**: `0.0` to `1.0`
+  
+  If the difference between the top two route scores is below this threshold (i.e., too close to call), the LLM router is invoked.
+  
+  - Higher values → more LLM router calls (slower, more accurate)
+  - Lower values → more local routing (faster, cheaper)
+</ParamField>
+
+<ParamField path="router_llm_confidence_threshold" type="float" default="0.60">
+  Minimum confidence for LLM router classification.
+  
+  **Range**: `0.0` to `1.0`
+  
+  If the LLM router's confidence is below this threshold, Klaus falls back to a default route.
+</ParamField>
+
+### Router Configuration Example
+
+```toml config.toml
+# More aggressive local routing (faster, cheaper)
+enable_query_router = true
+router_model = "claude-haiku-4-5"
+router_timeout_ms = 300
+router_max_tokens = 80
+router_local_confidence_threshold = 0.70
+router_local_margin_threshold = 0.25
+router_llm_confidence_threshold = 0.65
+```
+
+<Info>
+  Query routing reduces latency and API costs by only sending relevant context. Most turns are classified by fast local heuristics; uncertain turns get a lightweight LLM call.
+</Info>
+
+## User Background
+
+<ParamField path="user_background" type="string" default="">
+  Optional free-text description of your background and expertise.
+  
+  Klaus injects this into the system prompt so it can tailor explanations to your level.
+  
+  **Example**:
+  ```toml
+  user_background = "I'm a second-year physics PhD student focusing on quantum information theory."
+  ```
+  
+  <Tip>
+    Set this in the setup wizard or Settings dialog. Klaus will adjust its explanations based on your background.
+  </Tip>
+</ParamField>
+
+## Obsidian Integration
+
+<ParamField path="obsidian_vault_path" type="string" default="">
+  Path to your Obsidian vault folder for the notes feature.
+  
+  When set, you can ask Klaus to save notes directly to your vault.
+  
+  **Example**:
+  ```toml
+  obsidian_vault_path = "/Users/yourname/Documents/ObsidianVault"
+  ```
+  
+  You can also use the environment variable `OBSIDIAN_VAULT_PATH`.
+</ParamField>
+
+<Info>
+  If `obsidian_vault_path` is empty, the notes feature is disabled. Configure this in the Settings dialog under the "Profile" tab.
+</Info>
+
+## Logging
+
+<ParamField path="log_level" type="string" default="INFO">
+  Logging verbosity level.
+  
+  **Options**:
+  - `DEBUG`: Very verbose, shows all internal operations
+  - `INFO`: Normal verbosity, shows key operations (default)
+  - `WARNING`: Only warnings and errors
+  - `ERROR`: Only errors
+  
+  Logs are printed to the console where Klaus was launched.
+</ParamField>
+
+### Example: Enable Debug Logging
+
+```toml config.toml
+log_level = "DEBUG"
+```
+
+<Warning>
+  `DEBUG` mode is very verbose and may log sensitive information. Only use for troubleshooting.
+</Warning>
+
+## Microphone Device
+
+<ParamField path="mic_index" type="integer" default="-1">
+  Index of the microphone device to use.
+  
+  **Default**: `-1` (system default microphone)
+  
+  If you have multiple microphones:
+  - `-1` = Use system default
+  - `0` = First microphone
+  - `1` = Second microphone, etc.
+  
+  <Tip>
+    Use Klaus's Settings dialog to select the correct microphone. The index will be saved automatically.
+  </Tip>
+</ParamField>
+
+## Setup Wizard
+
+<ParamField path="setup_complete" type="boolean" default="false">
+  Flag indicating whether the first-run setup wizard has been completed.
+  
+  **Do not edit this manually**. It's set automatically by the setup wizard.
+  
+  To re-run the setup wizard:
+  1. Close Klaus
+  2. Edit config.toml and set `setup_complete = false`
+  3. Restart Klaus
+</ParamField>
+
+## Example: Complete Advanced Configuration
+
+```toml config.toml
+# Advanced VAD tuning for noisy office environment
+vad_sensitivity = 3
+vad_silence_timeout = 2.0
+vad_min_duration = 0.7
+vad_min_voiced_ratio = 0.32
+vad_min_voiced_frames = 10
+vad_min_rms_dbfs = -42.0
+vad_min_voiced_run_frames = 7
+
+# Query router optimization for speed
+enable_query_router = true
+router_model = "claude-haiku-4-5"
+router_timeout_ms = 300
+router_max_tokens = 60
+router_local_confidence_threshold = 0.75
+router_local_margin_threshold = 0.20
+router_llm_confidence_threshold = 0.65
+
+# User profile and notes
+user_background = "Undergraduate physics student with strong math background"
+obsidian_vault_path = "/Users/student/Documents/StudyNotes"
+
+# Debug logging
+log_level = "DEBUG"
+
+# Non-default microphone
+mic_index = 1
+```
+
+## Performance Tuning
+
+### For Noisy Environments
+
+```toml
+# Stricter VAD to reduce false triggers
+vad_sensitivity = 3
+vad_min_rms_dbfs = -40.0
+vad_min_voiced_ratio = 0.35
+```
+
+### For Quiet/Soft Speakers
+
+```toml
+# More lenient VAD to catch quiet speech
+vad_sensitivity = 2
+vad_min_rms_dbfs = -50.0
+vad_min_voiced_ratio = 0.25
+```
+
+### For Faster Response Times
+
+```toml
+# Shorter silence timeout
+vad_silence_timeout = 1.0
+
+# More aggressive local routing
+router_local_confidence_threshold = 0.70
+router_timeout_ms = 250
+```
+
+### For Cost Optimization
+
+```toml
+# Maximize local routing to reduce LLM calls
+router_local_confidence_threshold = 0.65
+router_local_margin_threshold = 0.30
+router_timeout_ms = 200
+```
+
+## Troubleshooting
+
+### VAD Triggers on Background Noise
+
+- Increase `vad_sensitivity` to `3`
+- Increase `vad_min_rms_dbfs` (e.g., from `-45.0` to `-40.0`)
+- Increase `vad_min_voiced_ratio` (e.g., from `0.28` to `0.35`)
+
+### VAD Misses Quiet Speech
+
+- Decrease `vad_sensitivity` to `2` or `1`
+- Decrease `vad_min_rms_dbfs` (e.g., from `-45.0` to `-50.0`)
+- Decrease `vad_min_voiced_ratio` (e.g., from `0.28` to `0.20`)
+
+### Router Too Slow
+
+- Decrease `router_timeout_ms` (e.g., to `250` ms)
+- Increase `router_local_confidence_threshold` to avoid LLM calls
+- Increase `router_local_margin_threshold` to make local routing more decisive
+
+### Notes Feature Not Working
+
+- Verify `obsidian_vault_path` is set correctly
+- Check that the path exists and Klaus has write permissions
+- Ensure the path doesn't have a trailing slash

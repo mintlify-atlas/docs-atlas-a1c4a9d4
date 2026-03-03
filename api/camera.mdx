@@ -1,0 +1,179 @@
+---
+title: 'Camera'
+description: 'Document camera capture and image processing'
+---
+
+## Camera
+
+Continuously captures frames from a document camera in a background thread.
+
+### Constructor
+
+```python
+Camera(
+    device_index: int | None = None,
+    frame_width: int | None = None,
+    frame_height: int | None = None,
+    rotation: str | None = None,
+)
+```
+
+<ParamField path="device_index" type="int | None" default="None">
+  Camera device index. Uses `config.camera_device_index` if None
+</ParamField>
+
+<ParamField path="frame_width" type="int | None" default="None">
+  Frame width in pixels. Uses `config.camera_frame_width` if None
+</ParamField>
+
+<ParamField path="frame_height" type="int | None" default="None">
+  Frame height in pixels. Uses `config.camera_frame_height` if None
+</ParamField>
+
+<ParamField path="rotation" type="str | None" default="None">
+  Rotation mode: "auto", "none", "90", "180", "270". Uses `config.camera_rotation` if None
+</ParamField>
+
+**Location:** camera.py:62-87
+
+### Methods
+
+#### start()
+
+Open the camera and begin background frame capture.
+
+```python
+def start() -> None:
+```
+
+Raises `RuntimeError` if camera cannot be opened or device index is invalid.
+
+**Location:** camera.py:89-118
+
+#### get_frame()
+
+Return the most recent frame as a BGR numpy array, or None.
+
+```python
+def get_frame() -> np.ndarray | None:
+```
+
+<ResponseField name="frame" type="np.ndarray | None">
+  BGR image array (OpenCV format), or None if no frame captured yet
+</ResponseField>
+
+**Location:** camera.py:133-138
+
+#### get_frame_rgb()
+
+Return the most recent frame converted to RGB.
+
+```python
+def get_frame_rgb() -> np.ndarray | None:
+```
+
+<ResponseField name="frame" type="np.ndarray | None">
+  RGB image array, or None if no frame captured yet
+</ResponseField>
+
+**Location:** camera.py:140-145
+
+#### capture_base64_jpeg()
+
+Grab the current frame and return it as a base64-encoded JPEG string.
+
+```python
+def capture_base64_jpeg(quality: int = 85) -> str | None:
+```
+
+<ParamField path="quality" type="int" default="85">
+  JPEG compression quality (0-100)
+</ParamField>
+
+<ResponseField name="jpeg_base64" type="str | None">
+  Base64-encoded JPEG string, or None if no frame available
+</ResponseField>
+
+**Location:** camera.py:147-153
+
+#### capture_thumbnail_bytes()
+
+Return a small JPEG thumbnail as raw bytes (for the chat feed).
+
+```python
+def capture_thumbnail_bytes(max_width: int = 320) -> bytes | None:
+```
+
+<ParamField path="max_width" type="int" default="320">
+  Maximum width in pixels (height scaled proportionally)
+</ParamField>
+
+<ResponseField name="jpeg_bytes" type="bytes | None">
+  JPEG-encoded thumbnail bytes, or None if no frame available
+</ResponseField>
+
+**Location:** camera.py:155-165
+
+#### stop()
+
+Stop the capture thread and release the camera.
+
+```python
+def stop() -> None:
+```
+
+**Location:** camera.py:167-175
+
+### Properties
+
+<ResponseField name="is_running" type="bool">
+  Whether the camera is actively capturing
+</ResponseField>
+
+<ResponseField name="device_index" type="int">
+  Current camera device index
+</ResponseField>
+
+**Location:** camera.py:177-183
+
+---
+
+## Utility Functions
+
+### enumerate_cameras()
+
+Return available cameras as dicts for backward compatibility.
+
+```python
+def enumerate_cameras(max_index: int = 10) -> list[dict]:
+```
+
+<ParamField path="max_index" type="int" default="10">
+  Maximum device index to probe
+</ParamField>
+
+<ResponseField name="cameras" type="list[dict]">
+  List of camera info dicts with keys: `index`, `name`, `width`, `height`
+</ResponseField>
+
+**Location:** camera.py:22-34
+
+Delegates to `device_catalog.list_camera_devices()` and converts to dict format.
+
+## Camera Rotation
+
+The Camera class supports automatic rotation for portrait-oriented document cameras:
+
+- **`"auto"`** (default): Detects portrait frames (height > width) and rotates 90° clockwise
+- **`"none"`**: No rotation
+- **`"90"`, `"180"`, `"270"`**: Fixed rotation angles
+
+Rotation setting is resolved at camera startup (camera.py:46-56) and applied during frame capture (camera.py:126-127).
+
+## Platform Notes
+
+- Uses OpenCV (`cv2.VideoCapture`) with `CAP_DSHOW` backend on Windows, `CAP_ANY` elsewhere
+- Camera enumeration on macOS uses AVFoundation (via `device_catalog`) for friendly device names
+- Background capture thread runs as daemon
+
+**Location:** camera.py:19

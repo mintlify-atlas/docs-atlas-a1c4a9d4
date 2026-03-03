@@ -1,0 +1,74 @@
+---
+title: 'macOS Installation'
+description: 'Install Klaus on macOS using Homebrew'
+---
+
+## Install via Homebrew
+
+The recommended way to install Klaus on macOS is through Homebrew. This method handles all dependencies automatically, including Python, PortAudio, and required libraries.
+
+<Steps>
+  <Step title="Add the Klaus tap">
+    ```bash
+    brew tap bgigurtsis/klaus
+    ```
+  </Step>
+
+  <Step title="Install Klaus">
+    ```bash
+    brew install klaus
+    ```
+
+    This will install Klaus and all required dependencies including:
+    - Python 3.11-3.13
+    - PortAudio for audio handling
+    - All Python packages (PyQt6, OpenCV, Anthropic SDK, etc.)
+  </Step>
+
+  <Step title="Launch Klaus">
+    ```bash
+    klaus
+    ```
+
+    On first launch, a setup wizard will guide you through:
+    - API key configuration
+    - Camera selection
+    - Microphone setup
+    - Voice model download
+  </Step>
+</Steps>
+
+## macOS Permissions
+
+<Warning>
+  **Input Monitoring Permission Required**
+  
+  macOS may prompt you to grant your terminal Accessibility (input monitoring) permission. This is needed for global hotkeys (push-to-talk and voice-activation toggle) to work when Klaus is not focused.
+  
+  You can deny this prompt and still use Klaus through the in-app UI buttons instead.
+</Warning>
+
+<Note>
+  **macOS 26 + Python 3.14 Compatibility**
+  
+  The `pynput` library used for global hotkeys can crash on macOS 26 with Python 3.14. Klaus automatically disables global hotkeys on this combination and keeps in-app hotkeys active.
+  
+  For stable global hotkeys, use Python 3.13.
+</Note>
+
+## Updating Klaus
+
+To update Klaus to the latest version:
+
+```bash
+brew upgrade klaus
+```
+
+Brew will check for updates and install the latest release.
+
+## Next Steps
+
+After installation, proceed to:
+- [Camera Setup](/setup/camera-setup) - Configure your document camera or phone
+- [API Keys](/setup/api-keys) - Obtain required API keys
+- [First Run](/setup/first-run) - Complete the setup wizard

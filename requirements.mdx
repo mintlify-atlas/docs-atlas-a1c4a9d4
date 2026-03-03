@@ -1,0 +1,222 @@
+---
+title: Requirements
+description: Hardware, software, and API keys needed to run Klaus
+---
+
+## Hardware Requirements
+
+### Camera
+
+A camera is required for Klaus to see what you're reading.
+
+<Info>
+**Recommended:** A USB document camera (also called a visualiser) provides a clear, stable view of the full page.
+</Info>
+
+| Component | Details |
+|-----------|----------|
+| **Document Camera** | Recommended for best experience. Example: [PAKOTOO Document Camera](https://www.amazon.com/PAKOTOO-Document-Teachers-Classroom-Distance) (Amazon US) or [kitchbai Visualiser](https://www.amazon.co.uk/kitchbai-Visualiser-Teaching-Classroom-Chromebook) (Amazon UK) |
+| **Phone on Gooseneck** | Alternative: Phone on a ~$10-15 gooseneck mount pointed straight down at your reading surface |
+
+#### Using Your Phone as a Webcam
+
+If you don't have a document camera, you can use your phone:
+
+| Platform | App | Details |
+|----------|-----|----------|
+| **macOS + iPhone** | Built-in Continuity Camera | iOS 16+, macOS Ventura+, no install needed - [Learn more](https://support.apple.com/en-us/102546) |
+| **macOS + Android** | [Camo](https://reincubate.com/camo/) | Free, 1080p - install on phone + Mac, pair via QR or USB |
+| **Windows + Android** | [DroidCam](https://www.dev47apps.com/) | Free - install on phone + PC, connect over Wi-Fi or USB |
+| **Windows + iPhone** | [Camo](https://reincubate.com/camo/) | Free, 1080p - install on phone + PC, pair via QR or USB |
+
+<Note>
+Klaus auto-detects portrait orientation and rotates the image. You can override this with `camera_rotation` in `~/.klaus/config.toml` if needed.
+</Note>
+
+### Microphone
+
+Built-in or external microphone. Selected during the setup wizard.
+
+<Info>
+Most built-in laptop microphones work fine. External microphones may provide better voice detection in noisy environments.
+</Info>
+
+### Audio Output
+
+Built-in speakers or external speakers/headphones for TTS playback.
+
+## Software Requirements
+
+### Operating System
+
+Klaus supports:
+- **macOS** (Ventura or later recommended)
+- **Windows** (10 or later)
+
+### Installation Methods
+
+<Tabs>
+  <Tab title="macOS (Homebrew)">
+    **Homebrew** handles all dependencies automatically. No manual installs needed.
+    
+    ```bash
+    brew tap bgigurtsis/klaus
+    brew install klaus
+    ```
+  </Tab>
+  <Tab title="Windows (pipx)">
+    **pipx** handles all dependencies automatically. No manual installs needed.
+    
+    ```bash
+    pip install pipx && pipx ensurepath
+    # Restart terminal, then:
+    pipx install klaus-assistant
+    ```
+  </Tab>
+  <Tab title="From Source">
+    ### macOS
+    
+    - Python 3.11-3.13
+    - PortAudio: `brew install python@3.13 portaudio`
+    
+    ### Windows
+    
+    - Python 3.11-3.13
+    - [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (for `webrtcvad` wheel compilation)
+    
+    Then:
+    ```bash
+    git clone https://github.com/bgigurtsis/Klaus.git
+    cd Klaus
+    pip install -e .
+    ```
+  </Tab>
+</Tabs>
+
+### Dependencies
+
+Klaus uses the following Python packages (installed automatically):
+
+| Package | Purpose |
+|---------|----------|
+| `anthropic>=0.39.0` | Claude API client for vision + reasoning |
+| `openai>=1.58.0` | OpenAI API client for text-to-speech |
+| `opencv-python>=4.10.0` | Camera capture and image processing |
+| `sounddevice>=0.5.0` | Audio recording and playback |
+| `webrtcvad>=2.0.10` | Voice activity detection |
+| `moonshine-voice>=0.0.49` | Local speech-to-text |
+| `PyQt6>=6.7.0` | Desktop GUI framework |
+| `tavily-python>=0.5.0` | Web search integration |
+| `pynput>=1.7.6` | Global hotkey support |
+| `keyring>=25.6.0` | Secure API key storage (macOS only) |
+| `pyobjc-framework-AVFoundation>=10.3` | Native camera names (macOS only) |
+
+## API Keys
+
+Klaus requires API keys from three providers. The setup wizard asks for them on first launch.
+
+### Anthropic (Claude)
+
+**Purpose:** Vision analysis and reasoning
+
+**Get a key:** [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+
+**Model used:** `claude-sonnet-4-6` (configurable in `~/.klaus/config.toml`)
+
+**Cost driver:** This is the largest cost component. ~$0.025-0.035 per question with vision context.
+
+### OpenAI
+
+**Purpose:** Text-to-speech (gpt-4o-mini-tts)
+
+**Get a key:** [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+
+**Cost:** $0.015 per minute of generated audio
+
+### Tavily
+
+**Purpose:** Web search (triggers automatically when Claude is uncertain)
+
+**Get a key:** [app.tavily.com/home](https://app.tavily.com/home)
+
+**Free tier:** 1,000 searches per month
+
+## API Key Storage
+
+<Tabs>
+  <Tab title="macOS">
+    Keys are stored securely in **Apple Keychain**. Klaus resolves each key in this order:
+    
+    1. Environment variable (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`)
+    2. Apple Keychain
+    3. Legacy `~/.klaus/config.toml` `[api_keys]` section (fallback)
+    
+    <Info>
+    Existing plaintext keys in `config.toml` are automatically migrated to Keychain on first launch.
+    </Info>
+  </Tab>
+  <Tab title="Windows">
+    Keys are stored in `~/.klaus/config.toml` under the `[api_keys]` section:
+    
+    ```toml
+    [api_keys]
+    anthropic = "sk-ant-..."
+    openai = "sk-proj-..."
+    tavily = "tvly-..."
+    ```
+    
+    <Warning>
+    Ensure `config.toml` has appropriate file permissions to protect your API keys.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Optional: Obsidian Integration
+
+If you want Klaus to write notes directly to your Obsidian vault:
+
+1. Set `obsidian_vault_path` in `~/.klaus/config.toml` (or `OBSIDIAN_VAULT_PATH` in `.env`)
+2. Or configure it in the setup wizard ("About You" step) or settings dialog ("Profile" tab)
+
+**Example:**
+
+```toml
+obsidian_vault_path = "/Users/yourname/Documents/ObsidianVault"
+```
+
+When configured, you can ask Klaus to take notes like:
+
+> "Save this to my daily note: The key insight from this page is..."
+
+## Data Storage
+
+Klaus stores data in `~/.klaus/`:
+
+| File | Purpose |
+|------|----------|
+| `config.toml` | User settings, API keys (Windows), device selections |
+| `klaus.db` | SQLite database with sessions, exchanges, and knowledge profile |
+
+<Info>
+Images are **not stored**. Only a short hash of each page capture is kept for deduplication.
+</Info>
+
+<Warning>
+To reset Klaus and clear all sessions: delete `~/.klaus/klaus.db` and restart the app.
+</Warning>
+
+## System Permissions
+
+### macOS
+
+- **Camera access:** Required for page capture
+- **Microphone access:** Required for voice input
+- **Accessibility/Input Monitoring:** Optional, only needed for global hotkeys to work when Klaus is not focused
+
+<Note>
+You can deny the Accessibility permission and use in-app UI buttons instead of global hotkeys.
+</Note>
+
+### Windows
+
+No special permissions required beyond standard camera and microphone access.

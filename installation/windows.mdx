@@ -1,0 +1,90 @@
+---
+title: 'Windows Installation'
+description: 'Install Klaus on Windows using pipx'
+---
+
+## Install via pipx
+
+The recommended way to install Klaus on Windows is through pipx, which creates an isolated environment for the application and its dependencies.
+
+<Steps>
+  <Step title="Install pipx">
+    If you don't have pipx installed, install it with pip:
+
+    ```bash
+    pip install pipx && pipx ensurepath
+    ```
+
+    <Note>
+      After running this command, **restart your terminal** to ensure pipx is added to your PATH.
+    </Note>
+  </Step>
+
+  <Step title="Install Klaus">
+    Once pipx is set up, install Klaus:
+
+    ```bash
+    pipx install klaus-assistant
+    ```
+
+    This will:
+    - Create an isolated virtual environment
+    - Install Klaus and all dependencies
+    - Make the `klaus` command available globally
+  </Step>
+
+  <Step title="Launch Klaus">
+    ```bash
+    klaus
+    ```
+
+    On first launch, a setup wizard will guide you through:
+    - API key configuration
+    - Camera selection
+    - Microphone setup
+    - Voice model download
+  </Step>
+</Steps>
+
+## Prerequisites
+
+<Note>
+  **Visual C++ Build Tools**
+  
+  If you plan to build from source or encounter installation issues, you may need [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) for compiling the `webrtcvad` Python package.
+  
+  The pipx installation typically handles this automatically with pre-built wheels.
+</Note>
+
+## Updating Klaus
+
+To update Klaus to the latest version:
+
+```bash
+pipx upgrade klaus-assistant
+```
+
+## Troubleshooting
+
+### pipx not found after installation
+
+If you get "pipx: command not found" after installation:
+
+1. Close and reopen your terminal
+2. Verify pipx is in your PATH: `pipx --version`
+3. If still not found, manually add it to PATH or reinstall
+
+### Import errors on launch
+
+If Klaus fails to import modules:
+
+1. Uninstall: `pipx uninstall klaus-assistant`
+2. Clear cache: `pipx list` (note the environment path)
+3. Reinstall: `pipx install klaus-assistant`
+
+## Next Steps
+
+After installation, proceed to:
+- [Camera Setup](/setup/camera-setup) - Configure your document camera or phone
+- [API Keys](/setup/api-keys) - Obtain required API keys
+- [First Run](/setup/first-run) - Complete the setup wizard

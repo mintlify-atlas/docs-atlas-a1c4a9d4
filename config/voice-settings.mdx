@@ -1,0 +1,188 @@
+---
+title: "Voice Settings"
+description: "Configure TTS voice, playback speed, and STT model"
+---
+
+Klaus uses OpenAI's text-to-speech for output and Moonshine for local speech-to-text. Both are highly configurable.
+
+## Text-to-Speech (TTS)
+
+### Voice Selection
+
+<ParamField path="voice" type="string" default="cedar">
+  The OpenAI TTS voice model to use for spoken responses.
+  
+  **Available voices**:
+  - `alloy`
+  - `ash`
+  - `ballad`
+  - `cedar` (default)
+  - `coral`
+  - `echo`
+  - `fable`
+  - `marin`
+  - `nova`
+  - `onyx`
+  - `sage`
+  - `shimmer`
+  - `verse`
+  
+  <Tip>
+    Listen to voice samples at [OpenAI's TTS documentation](https://platform.openai.com/docs/guides/text-to-speech/voice-options) to find your preferred voice.
+  </Tip>
+</ParamField>
+
+### Playback Speed
+
+<ParamField path="tts_speed" type="float" default="1.0">
+  Playback speed multiplier for TTS audio.
+  
+  **Valid range**: `0.25` to `4.0`
+  - `0.25` = 4× slower (very slow)
+  - `1.0` = normal speed (default)
+  - `2.0` = 2× faster
+  - `4.0` = 4× faster (maximum)
+  
+  <Info>
+    Values outside the 0.25-4.0 range may produce distorted or unintelligible audio.
+  </Info>
+</ParamField>
+
+### TTS Model
+
+Klaus uses OpenAI's **gpt-4o-mini-tts** model, which is hardcoded and cannot be changed via configuration.
+
+**Cost**: Approximately $0.015 per minute of generated audio.
+
+### Voice Instructions
+
+Klaus sends the following instructions to the TTS API to optimize voice output:
+
+> "Speak at a natural conversational pace, not slow or deliberate. You are a sharp colleague giving a quick answer across a desk. Be direct and matter-of-fact, not performative. No vocal fry, no uptalk."
+
+These instructions are hardcoded and ensure consistent, professional voice output across all voice models.
+
+## Speech-to-Text (STT)
+
+Klaus uses **Moonshine Voice**, a local on-device STT model that runs entirely on your machine with **no API calls or costs**.
+
+### Model Size
+
+<ParamField path="stt_moonshine_model" type="string" default="medium">
+  Moonshine model size. Larger models are more accurate but slower.
+  
+  **Available models**:
+  
+  | Model | Size | Latency | Accuracy |
+  |-------|------|---------|----------|
+  | `tiny` | Small | ~100ms | Good |
+  | `small` | Medium | ~200ms | Better |
+  | `medium` | Large | ~300ms | Best (default) |
+  
+  <Tip>
+    The `medium` model (default) provides the best balance of accuracy and speed for most users. The model is downloaded automatically on first use.
+  </Tip>
+</ParamField>
+
+### Language
+
+<ParamField path="stt_moonshine_language" type="string" default="en">
+  Language code for Moonshine transcription.
+  
+  **Default**: `en` (English)
+  
+  <Info>
+    See the [Moonshine documentation](https://github.com/usefulsensors/moonshine) for a full list of supported language codes.
+  </Info>
+</ParamField>
+
+## Input Mode
+
+<ParamField path="input_mode" type="string" default="voice_activation">
+  Default input mode on startup.
+  
+  **Options**:
+  - `voice_activation`: Klaus automatically detects when you're speaking (default)
+  - `push_to_talk`: Hold the push-to-talk key to record
+  
+  You can toggle between modes at runtime using the toggle key (default: `F3` on Windows, `§` on macOS).
+</ParamField>
+
+## Example Configuration
+
+```toml config.toml
+# Use the 'nova' voice at slightly faster speed
+voice = "nova"
+tts_speed = 1.2
+
+# Start in push-to-talk mode
+input_mode = "push_to_talk"
+
+# Use small Moonshine model for faster transcription
+stt_moonshine_model = "small"
+stt_moonshine_language = "en"
+```
+
+## Advanced: TTS Streaming
+
+Klaus uses **sentence-level streaming** for low-latency responses:
+
+1. Claude's response is split into sentences as it streams
+2. Each sentence is sent to OpenAI TTS immediately (max 4000 chars per call)
+3. Audio playback starts on the first chunk
+4. Remaining chunks play seamlessly as they're generated
+
+**Result**: You hear the first sentence in 2-3 seconds, well before the full response is complete.
+
+### Platform Optimizations
+
+- **macOS**: Uses `high` latency mode to prevent CoreAudio crackling
+- **All platforms**: Reuses a single persistent audio output stream across all chunks to avoid device initialization delays
+- **VAD suspension**: The microphone stream is suspended during TTS playback to free the audio device
+
+## Latency Breakdown
+
+Typical end-to-end latency from question to first spoken word:
+
+| Stage | Latency |
+|-------|--------|
+| VAD detection + silence timeout | 0.5-1.5s |
+| Moonshine STT (medium model) | ~300ms |
+| Claude vision + reasoning (first chunk) | 1-2s |
+| OpenAI TTS (first sentence) | 0.5-1s |
+| **Total** | **2-4 seconds** |
+
+<Info>
+  Subsequent sentences stream with minimal additional latency, creating a natural conversational flow.
+</Info>
+
+## Model Downloads
+
+The Moonshine model is downloaded automatically on first use:
+
+- **tiny**: ~80 MB
+- **small**: ~160 MB  
+- **medium**: ~245 MB
+
+Models are cached locally and only downloaded once.
+
+## Troubleshooting
+
+### TTS Voice Not Working
+
+1. **Check API key**: Verify `OPENAI_API_KEY` is set correctly
+2. **Check voice name**: Ensure the voice name matches one of the available options (case-sensitive)
+3. **Check logs**: Look for OpenAI API errors in Klaus's console output
+
+### STT Transcription Inaccurate
+
+1. **Try a larger model**: Switch from `tiny` to `medium` for better accuracy
+2. **Check microphone**: Ensure your mic is selected correctly in Settings
+3. **Reduce background noise**: Moonshine works best in quiet environments
+4. **Adjust VAD sensitivity**: See [Advanced Settings](/config/advanced#voice-activity-detection-vad)
+
+### TTS Playback Too Fast/Slow
+
+- Adjust `tts_speed` in config.toml
+- Valid range is 0.25 to 4.0
+- Recommended range: 0.8 to 1.5 for natural-sounding speech

@@ -1,0 +1,275 @@
+---
+title: Asking Questions Effectively
+description: How to ask questions that get you the most useful answers
+---
+
+Klaus is tuned for precision and brevity. Understanding how Klaus interprets your questions will help you get the most useful answers.
+
+## The Brevity Default
+
+Klaus values conciseness. By default, Klaus aims to give you the shortest accurate answer - typically 1-3 sentences - then stops.
+
+### Why Short Answers?
+
+When you're in a fast study loop (read, ask, clarify, continue), you want an answer that lets you keep reading. Klaus assumes you'll ask a follow-up if you need more detail.
+
+### Getting Longer Answers
+
+Explicitly ask for depth when you want it:
+
+- "Elaborate on that"
+- "Go deeper"
+- "Walk me through it"
+- "Tell me more"
+- "In depth"
+- "Break it down"
+
+These phrases signal Klaus to give a fuller explanation.
+
+<Tip>
+  Think of Klaus as a sharp colleague across a desk, not a lecturer. Ask short questions, get short answers, then drill down where you need more.
+</Tip>
+
+## Types of Questions
+
+Klaus intelligently routes your question based on what you're asking. Different question types receive different context and answer lengths.
+
+### Standalone Definitions
+
+When you ask for a definition or concept explanation without referencing the page, Klaus gives a direct, standalone answer in **no more than two sentences**.
+
+**Example:**
+```
+You: "Can you define time-reversal symmetry?"
+
+Klaus: "The laws governing the system are identical whether time runs 
+forward or backward. A pendulum in a vacuum has it. Ink diffusing in 
+water doesn't."
+```
+
+Klaus does NOT look at the page for these questions - it gives you the canonical definition from its training.
+
+**Trigger phrases:**
+- "What is [concept]?"
+- "Define [term]"
+- "Can you explain [idea]?"
+- "What does [term] mean?"
+
+### Page-Grounded Questions
+
+When you explicitly reference a location on the page, Klaus looks at the camera image and grounds its answer in what it sees.
+
+**Example:**
+```
+You: "What does this section mean?"
+
+Klaus: "Selection doesn't require intent. Any mechanism that copies 
+with variation and filters by fitness produces adaptation."
+```
+
+**Trigger phrases:**
+- "What does **this** [section/paragraph/equation] mean?"
+- "Explain the definition **on the right**"
+- "What's **on the page**?"
+- "Can you read **this**?" (while pointing or holding the page)
+- "What does **the author** say about [topic]?"
+
+Klaus receives the full page image and recent conversation history for these questions.
+
+### Conceptual Questions
+
+When you ask about relationships between ideas, Klaus provides context-aware reasoning.
+
+**Example:**
+```
+You: "What's the difference between ergodic and non-ergodic systems?"
+
+Klaus: "In an ergodic system, one trajectory eventually visits all 
+accessible states, so time averages equal ensemble averages. In a 
+non-ergodic system it doesn't, so history and initial conditions 
+permanently matter."
+```
+
+Klaus may look at the page if it contains relevant context, or rely on its general knowledge if the question is theoretical.
+
+### Follow-Up Questions
+
+Klaus remembers your conversation history within a session. You can refer back to previous exchanges:
+
+**Example:**
+```
+You: "What does non-linear coupling mean?"
+Klaus: "Components interact in ways where the effect of one depends on 
+the state of others. You can't isolate variables."
+
+You: "Can you give me an example from the page?"
+Klaus: [looks at page and provides a specific example]
+```
+
+## When Klaus Searches the Web
+
+Klaus automatically triggers a web search when:
+
+- It's **uncertain** about a factual claim
+- You ask about a **specific paper or author** that might need verification
+- You ask about **recent events or discoveries** outside its training data
+- It needs to **verify a technical definition** before answering
+
+You'll see search results mentioned in Klaus's answer when this happens.
+
+**Example:**
+```
+You: "Is this claim about the Higgs boson discovery accurate?"
+
+Klaus: [searches] "The discovery was announced in 2012 at CERN, confirmed 
+at 5 sigma significance. The claim on the page is accurate - the mass 
+measurement matches the published results."
+```
+
+<Note>
+  Klaus uses [Tavily](https://tavily.com) for web search. The free tier includes 1,000 searches per month.
+</Note>
+
+## Referencing Specific Parts of the Page
+
+When asking about the page, be specific about location:
+
+**Effective:**
+- "What's the equation in the top right?"
+- "Define the term in the third paragraph"
+- "What does the diagram on the left show?"
+- "Read the conclusion at the bottom"
+
+**Less effective:**
+- "What's on the page?" (Klaus will ask you to clarify)
+- "Explain this" (without context about what "this" refers to)
+
+## Mathematical and Technical Notation
+
+When you ask about formulas or mathematical notation, Klaus explains what it means and why it matters, rather than assuming you're familiar with the formalism.
+
+**Example:**
+```
+You: "What does this integral represent?"
+
+Klaus: "It's summing the probability density over all possible states. 
+The bounds tell you the system is confined to a finite region. The 
+result is normalized to one because total probability must be unity."
+```
+
+## Critical Evaluation
+
+Klaus can help you evaluate claims critically. Ask about evidence, assumptions, or weaknesses:
+
+**Examples:**
+- "What evidence does the author give for this claim?"
+- "What assumptions are behind this argument?"
+- "Where might this be weak?"
+- "Is this claim well-supported?"
+
+Klaus will point to specific parts of the page and evaluate the reasoning.
+
+## What Klaus Does NOT Do
+
+### No Page Summaries by Default
+
+If you say something brief or unclear, Klaus asks for clarification rather than defaulting to a page summary.
+
+**Not this:**
+```
+You: "Okay" or "Hmm" or "Interesting"
+Klaus: [does NOT summarize the page]
+```
+
+Klaus waits for an actual question.
+
+### No Narration of the Page
+
+Klaus does NOT say:
+- "The page defines X as..."
+- "According to the text..."
+- "The author describes..."
+- "It's described as..."
+
+Klaus just states the answer directly.
+
+### No Lists or Bullet Points
+
+Klaus is spoken aloud, so it avoids structured lists. Instead, it speaks in clear, direct sentences.
+
+## Voice Style Expectations
+
+Because Klaus is spoken aloud, it follows strict voice style rules:
+
+- **No preambles** - Klaus never says "Great question" or "Let me explain"
+- **No hedging filler** - No "sort of", "kind of", or "if you will" (unless expressing genuine uncertainty)
+- **No theatrical transitions** - No "This is where it gets interesting" or "Here's the thing"
+- **No buzzwords** - No "dive into", "leverage", "robust", "multifaceted", etc.
+- **Direct statements** - Just the answer, no framing or setup
+
+## Example Question Patterns
+
+### Quick Definitions
+
+```
+You: "What does emergence mean?"
+Klaus: "Properties that appear at higher levels of organization but 
+aren't present in the individual components."
+```
+
+### Page Context
+
+```
+You: "What's the author's main argument in this section?"
+Klaus: "Complex systems can't be understood by reduction because 
+interactions between components create new behavior that doesn't exist 
+in the parts alone."
+```
+
+### Elaboration
+
+```
+You: "What's a phase transition?"
+Klaus: "A sudden qualitative change in a system when a parameter crosses 
+a threshold."
+
+You: "Give me an example from the page"
+Klaus: "The author uses freezing - at zero Celsius, water abruptly shifts 
+from liquid to solid. The molecules are the same, but collective behavior 
+changes discontinuously."
+```
+
+### Critical Analysis
+
+```
+You: "Is the author's reasoning sound here?"
+Klaus: "The logic is valid if you accept the premise that selection acts 
+on variation. The weak point is the assumption of heritability - the 
+argument needs that to close, and it's only mentioned in passing."
+```
+
+## Adjusting Klaus's Behavior
+
+If you want Klaus to consistently give longer or more detailed answers, you can add context to your **user background** in Settings.
+
+**Example:**
+```toml
+user_background = "I'm a graduate student in complexity science. I prefer 
+detailed technical explanations and want you to assume I'm familiar with 
+basic mathematics and physics."
+```
+
+This gets injected into Klaus's system prompt and influences answer depth and technicality.
+
+See [Configuration > User Background](/config/advanced#user-background) for more details.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Voice Modes" icon="microphone" href="/usage/voice-modes">
+    Choose the right input mode for your environment
+  </Card>
+  <Card title="Obsidian Integration" icon="note" href="/usage/obsidian-integration">
+    Save important answers as notes
+  </Card>
+</CardGroup>

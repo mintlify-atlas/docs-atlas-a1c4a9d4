@@ -1,0 +1,143 @@
+---
+title: "Configuration Overview"
+description: "Understanding Klaus's config.toml structure and settings"
+---
+
+Klaus stores all configuration in `~/.klaus/config.toml`, created automatically on first run. This file controls everything from hotkeys to voice settings to advanced VAD parameters.
+
+## Configuration File Location
+
+The configuration file is stored at:
+
+- **macOS/Linux**: `~/.klaus/config.toml`
+- **Windows**: `%USERPROFILE%\.klaus\config.toml`
+
+The file is created with sensible defaults on first launch. You can edit it directly with any text editor.
+
+## Configuration Structure
+
+The config file uses [TOML format](https://toml.io/) with the following main sections:
+
+### Top-Level Settings
+
+Most configuration options are defined at the top level:
+
+```toml
+# Setup wizard completion flag
+setup_complete = true
+
+# Input hotkeys
+hotkey = "F2"
+toggle_key = "F3"
+
+# Hardware device indices
+camera_index = 0
+mic_index = -1
+
+# Voice and speech settings
+voice = "cedar"
+tts_speed = 1.0
+input_mode = "voice_activation"
+
+# Logging
+log_level = "INFO"
+```
+
+### API Keys Section
+
+On **Windows** and as a fallback on macOS, API keys are stored in a dedicated section:
+
+```toml
+[api_keys]
+anthropic = "sk-ant-..."
+openai = "sk-..."
+tavily = "tvly-..."
+```
+
+<Note>
+  On **macOS**, API keys are stored securely in Apple Keychain by default. The `[api_keys]` section is only used as a fallback when Keychain is unavailable.
+</Note>
+
+## Environment Variables
+
+Klaus supports environment variables as an alternative to config file settings. Environment variables take precedence over config.toml values.
+
+### API Keys
+
+| Environment Variable | Purpose |
+|---------------------|----------|
+| `ANTHROPIC_API_KEY` | Claude vision + reasoning |
+| `OPENAI_API_KEY` | Text-to-speech |
+| `TAVILY_API_KEY` | Web search |
+
+### Optional Settings
+
+| Environment Variable | Config Key | Default |
+|---------------------|------------|----------|
+| `OBSIDIAN_VAULT_PATH` | `obsidian_vault_path` | `""` |
+
+## Editing Configuration
+
+### Manual Editing
+
+You can edit `config.toml` directly:
+
+1. Close Klaus
+2. Open `~/.klaus/config.toml` in your text editor
+3. Uncomment and modify any setting
+4. Save the file
+5. Restart Klaus
+
+### Using the Settings Dialog
+
+Many settings can be changed through Klaus's built-in Settings dialog:
+
+- API keys
+- Camera selection
+- Microphone selection
+- User background profile
+- Obsidian vault path
+
+<Info>
+  Some settings like hotkeys, VAD parameters, and STT model require editing config.toml directly and restarting Klaus.
+</Info>
+
+## Configuration Defaults
+
+All settings have sensible defaults. If a setting is commented out or missing from config.toml, Klaus uses the default value shown in the configuration template.
+
+See the individual configuration pages for detailed information on each setting:
+
+<CardGroup cols={2}>
+  <Card title="Hotkeys" icon="keyboard" href="/config/hotkeys">
+    Configure push-to-talk and toggle keys
+  </Card>
+  <Card title="Voice Settings" icon="microphone" href="/config/voice-settings">
+    TTS voice, speed, and STT model
+  </Card>
+  <Card title="Camera" icon="camera" href="/config/camera-settings">
+    Resolution, rotation, and device selection
+  </Card>
+  <Card title="Advanced" icon="sliders" href="/config/advanced">
+    VAD sensitivity, logging, and router settings
+  </Card>
+</CardGroup>
+
+## Validation
+
+Klaus validates config.toml on startup:
+
+- Invalid TOML syntax triggers a warning and falls back to defaults
+- Invalid values (wrong type, out of range) are coerced to defaults
+- Missing API keys are detected and reported
+
+Check the console output or logs for configuration warnings.
+
+## Resetting Configuration
+
+To reset to default settings:
+
+1. Close Klaus
+2. Delete or rename `~/.klaus/config.toml`
+3. Restart Klaus
+4. The setup wizard will run again with a fresh configuration file

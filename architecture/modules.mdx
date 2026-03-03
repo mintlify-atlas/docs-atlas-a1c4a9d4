@@ -1,0 +1,640 @@
+---
+title: Module Responsibilities
+description: Detailed breakdown of module structure and responsibilities
+---
+
+## Core Modules (`klaus/`)
+
+### `config.py` (527 lines)
+
+**Purpose**: Configuration management via TOML + environment variables
+
+**Responsibilities**:
+- Load and parse `~/.klaus/config.toml`
+- Fall back to `.env` for backward compatibility
+- Define constants for models, voice settings, system prompt
+- Manage query router thresholds and feature flags
+- Provide runtime setters for camera/mic device changes
+- Dynamic system prompt assembly with user background
+
+**Key APIs**:
+```python
+DATA_DIR: Path  # ~/.klaus/
+CONFIG_PATH: Path  # ~/.klaus/config.toml
+DB_PATH: Path  # ~/.klaus/klaus.db
+
+@dataclass
+class RuntimeSettings:
+    anthropic_api_key: str
+    openai_api_key: str
+    tavily_api_key: str
+    camera_device_index: int
+    mic_device_index: int
+    tts_voice: str
+    tts_speed: float
+    # ... more fields
+
+def get_runtime_settings() -> RuntimeSettings
+def reload() -> None  # Re-read config.toml
+def save_setting(key: str, value: Any) -> None
+```
+
+**Dynamic System Prompt** (`klaus/config.py:_build_system_prompt()`):
+- Base prompt defines Klaus's role and response style
+- Appends `user_background` from config if present
+- Injected into every Claude call
+
+**Feature Flags**:
+- `ENABLE_QUERY_ROUTER`: toggle query routing (default `True`)
+- `ROUTER_LOCAL_CONFIDENCE_THRESHOLD`: min confidence for local route (default 0.75)
+- `ROUTER_TIMEOUT_MS`: LLM router timeout (default 350ms)
+
+---
+
+### `main.py` (941 lines)
+
+**Purpose**: Application entry point and component wiring
+
+**Responsibilities**:
+- Initialize PyQt6 application
+- Gate first-run setup wizard
+- Wire all components: Brain, Camera, Audio, TTS, Memory, Notes
+- Manage hotkey listeners (pynput + Qt)
+- Handle Qt signal bridge for thread-safe UI updates
+- Implement live device switching with rollback on failure
+- Reload API clients after settings changes
+
+**Key Classes**:
+```python
+class KlausApp(QObject):
+    def __init__(self, app: QApplication)
+    def _init_components(self) -> None  # Deferred until after wizard
+    def _on_question_received(self, audio_bytes: bytes) -> None
+    def _switch_camera_device(self, new_index: int) -> None
+    def _switch_mic_device(self, new_index: int) -> None
+    @_safe_slot  # Decorator catches exceptions to prevent Qt abort()
+```
+
+**Hotkey Handling**:
+- **Qt key events**: `MainWindow.keyPressEvent/keyReleaseEvent` (focus required)
+- **pynput global hotkeys**: Works system-wide but requires macOS Accessibility permission
+- Both backends run in parallel; pynput starts gracefully with fallback on failure
+
+**Setup Wizard Gate**:
+```python
+if not settings.setup_complete:
+    wizard = SetupWizard()
+    if wizard.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
+    config.reload()
+```
+
+**Safe Slot Decorator** (`klaus/main.py:_safe_slot`):
+```python
+def _safe_slot(func: Callable) -> Callable:
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            logger.exception("Uncaught exception in slot %s", func.__name__)
+    return wrapper
+```
+
+Prevents PyQt6 from calling `abort()` when exceptions escape signal handlers.
+
+---
+
+### `brain.py` (440 lines)
+
+**Purpose**: Claude vision + tool-use orchestration
+
+**Responsibilities**:
+- Manage conversation history
+- Assemble context based on route decision
+- Stream Claude responses sentence-by-sentence
+- Execute tool calls (web search, notes)
+- Enforce sentence caps for definitions
+- Strip old images from history to save tokens
+
+**Key APIs**:
+```python
+class Brain:
+    def decide_route(self, question: str) -> RouteDecision
+    def ask(
+        self,
+        question: str,
+        image_base64: str | None,
+        memory_context: str | None,
+        notes_context: str | None,
+        on_sentence: Callable[[str], None] | None,
+        route_decision: RouteDecision | None,
+    ) -> Exchange
+    def clear_history(self) -> None
+    def trim_history(self, max_turns: int = 20) -> None
+```
+
+**Context Assembly** (`klaus/brain.py:115`):
+1. Build user content: image block (optional) + text block
+2. Build system prompt: base + memory + notes + turn instruction + sentence cap
+3. Build message history: full or windowed based on route policy
+
+**Streaming** (`klaus/brain.py:227`):
+```python
+with self._client.messages.stream(
+    model=CLAUDE_MODEL,
+    system=system,
+    messages=messages,
+    tools=self._tools,
+) as stream:
+    for event in stream:
+        if event.type == "content_block_delta":
+            text_buf += event.delta.text
+            sentences, text_buf = _extract_sentences(text_buf)
+            for sentence in sentences:
+                on_sentence(sentence)
+```
+
+**Tool Loop** (`klaus/brain.py:154`):
+- Max 5 rounds of tool use
+- Each round: stream response → execute tools → append to messages → continue
+- Tools: `web_search`, `set_notes_file`, `save_note`
+
+**Image Stripping** (`klaus/brain.py:388`):
+- Keep image in most recent user message only
+- Strip from older messages to reduce token usage
+
+---
+
+### `query_router.py` (458 lines)
+
+**Purpose**: Hybrid local + LLM query classification
+
+**Responsibilities**:
+- Classify questions into route modes: standalone definition, page-grounded definition, general contextual
+- Use fast local heuristics for most questions
+- Fall back to LLM router with strict timeout for ambiguous cases
+- Map route mode to context policy (image, history, memory, notes, sentence cap)
+
+**Route Modes**:
+```python
+class RouteMode(str, Enum):
+    STANDALONE_DEFINITION = "standalone_definition"
+    PAGE_GROUNDED_DEFINITION = "page_grounded_definition"
+    GENERAL_CONTEXTUAL = "general_contextual"
+```
+
+**Local Heuristics** (`klaus/query_router.py:191`):
+1. Pattern matching: `definition`, `doc_ref`, `deictic`, `spatial`, `concision`, `general`
+2. Weighted scoring for each route mode
+3. Confidence computed from top score vs. second score
+4. If confidence ≥ 0.75 and margin ≥ 0.20, use local decision
+
+**LLM Fallback** (`klaus/query_router.py:248`):
+- Model: `claude-haiku-4-5`
+- Timeout: 350ms (configurable)
+- Max tokens: 80
+- Returns JSON: `{mode, confidence, reason}`
+
+**Policy Mapping** (`klaus/query_router.py:353`):
+```python
+_POLICY = {
+    "standalone": {
+        "use_image": False,
+        "use_history": False,
+        "use_memory_context": False,
+        "use_notes_context": False,
+        "max_sentences": 2,
+        "history_turn_window": 0,
+    },
+    "page_definition": {
+        "use_image": True,
+        "use_history": True,
+        "max_sentences": 2,
+        "history_turn_window": 2,
+    },
+    "contextual": {
+        "use_image": True,
+        "use_history": True,
+        "use_memory_context": True,
+        "use_notes_context": True,
+        "max_sentences": None,
+        "history_turn_window": 0,
+    },
+}
+```
+
+See [Query Routing](/architecture/query-routing) for deep dive.
+
+---
+
+### `audio.py` (486 lines)
+
+**Purpose**: Audio input and output
+
+**Responsibilities**:
+- Push-to-talk recording
+- Voice-activated recording with WebRTC VAD
+- Quality gates for VAD (duration, voiced ratio, RMS loudness, voiced run)
+- Stream suspension/resumption for TTS
+- Audio playback
+
+**Classes**:
+```python
+class PushToTalkRecorder:
+    def start_recording(self) -> None
+    def stop_recording(self) -> bytes | None  # WAV bytes
+
+class VoiceActivatedRecorder:
+    def __init__(
+        self,
+        on_speech_start: Callable[[], None],
+        on_speech_end: Callable[[bytes], None],
+        on_speech_discard: Callable[[str], None] | None,
+        sensitivity: int = 2,  # 0-3
+        silence_timeout: float = 1.5,
+    )
+    def start(self) -> None
+    def stop(self) -> None
+    def pause(self) -> None
+    def resume(self) -> None
+    def suspend_stream(self) -> None  # Free CoreAudio device
+    def resume_stream(self) -> None
+
+class AudioPlayer:
+    def play_wav_bytes(self, wav_data: bytes) -> None
+    def stop(self) -> None
+```
+
+**VAD Quality Gates** (`klaus/audio.py:332`):
+1. `min_duration`: 0.5s (reject clicks/coughs)
+2. `min_voiced_frames`: 8 (reject {"<"}240ms of voiced content)
+3. `min_voiced_ratio`: 0.28 (reject mostly silence)
+4. `min_voiced_run_frames`: 6 (reject stuttered noise)
+5. `min_rms_dbfs`: -45.0 (reject very quiet utterances)
+
+---
+
+### `camera.py` (164 lines)
+
+**Purpose**: Background camera capture
+
+**Responsibilities**:
+- OpenCV background thread
+- Frame capture with thread-safe access
+- Auto-rotation for portrait frames
+- Base64 JPEG encoding for Claude
+- Thumbnail generation for chat UI
+
+**Key APIs**:
+```python
+class Camera:
+    def start(self) -> None
+    def stop(self) -> None
+    def get_frame(self) -> np.ndarray | None  # BGR
+    def get_frame_rgb(self) -> np.ndarray | None
+    def capture_base64_jpeg(self, quality: int = 85) -> str | None
+    def capture_thumbnail_bytes(self, max_width: int = 320) -> bytes | None
+```
+
+**Auto-Rotation** (`klaus/camera.py:45`):
+- Config: `camera_rotation` = `auto`, `none`, `90`, `180`, `270`
+- `auto`: detects portrait (h > w) and rotates 90° CW
+- Fixed angles use OpenCV `cv2.rotate()`
+
+**Capture Loop** (`klaus/camera.py:120`):
+```python
+def _capture_loop(self) -> None:
+    while self._running:
+        ret, frame = self._cap.read()
+        if ret:
+            if self._rotation is not None:
+                frame = cv2.rotate(frame, self._rotation)
+            with self._lock:
+                self._frame = frame
+```
+
+---
+
+### `tts.py` (248 lines)
+
+**Purpose**: Text-to-speech with streaming playback
+
+**Responsibilities**:
+- OpenAI TTS API calls
+- Sentence-level batching (max 4000 chars per API call)
+- Persistent `sd.OutputStream` to avoid macOS crackling
+- Parallel synthesis + playback via queues
+- Responsive stop via small write blocks
+
+**Key APIs**:
+```python
+class TextToSpeech:
+    def speak(self, text: str, on_sentence_start: Callable = None) -> None
+    def speak_streaming(self, sentence_queue: queue.Queue[str | None]) -> None
+    def stop(self) -> None
+    def reload_client(self, settings: RuntimeSettings | None = None) -> None
+```
+
+**Streaming Architecture**:
+1. **Sentence queue**: Main thread puts sentences, synthesis worker pulls
+2. **Audio queue**: Synthesis worker puts WAV bytes, playback loop pulls
+3. **Persistent stream**: One `sd.OutputStream` per session (avoids repeated create/destroy)
+
+**Chunk Splitting** (`klaus/tts.py:233`):
+```python
+def _split_into_chunks(text: str) -> list[str]:
+    sentences = SENTENCE_SPLIT.split(text.strip())
+    chunks = []
+    current = ""
+    for sentence in sentences:
+        if len(current) + len(sentence) + 1 > MAX_CHUNK_CHARS:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    return chunks
+```
+
+---
+
+### `stt.py` (103 lines)
+
+**Purpose**: Local speech-to-text via Moonshine
+
+**Responsibilities**:
+- Load Moonshine model from cache
+- Transcribe WAV bytes to text
+- Model and language configurable
+
+**Key APIs**:
+```python
+class MoonshineSTT:
+    def __init__(self, model_size: str = "medium", language: str = "en")
+    def transcribe(self, audio_bytes: bytes) -> str
+```
+
+**Model Download**:
+- First use triggers download to `~/.cache/moonshine/`
+- Setup wizard includes model download step with progress bar
+
+---
+
+### `memory.py` (254 lines)
+
+**Purpose**: SQLite persistence
+
+**Responsibilities**:
+- Create and migrate database schema
+- Save/load sessions and exchanges
+- Knowledge profile (unused, future feature)
+- Generate session titles from first question
+
+**Schema**:
+```sql
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY,
+    title TEXT,
+    created_at TEXT
+);
+
+CREATE TABLE exchanges (
+    id INTEGER PRIMARY KEY,
+    session_id INTEGER,
+    user_text TEXT,
+    assistant_text TEXT,
+    image_base64 TEXT,
+    created_at TEXT
+);
+
+CREATE TABLE knowledge_profile (
+    id INTEGER PRIMARY KEY,
+    summary TEXT,
+    updated_at TEXT
+);
+```
+
+**Key APIs**:
+```python
+class Memory:
+    def create_session(self, title: str) -> int
+    def save_exchange(self, session_id: int, user_text: str, assistant_text: str,
+                      image_base64: str | None = None) -> None
+    def load_session(self, session_id: int) -> list[Exchange]
+    def list_sessions(self) -> list[dict]
+```
+
+---
+
+### `notes.py` (100 lines)
+
+**Purpose**: Obsidian vault integration
+
+**Responsibilities**:
+- Set active note file
+- Append content to notes
+- Expose `set_notes_file` and `save_note` tools to Claude
+
+**Key APIs**:
+```python
+class NotesManager:
+    def __init__(self, vault_path: str | None)
+    def set_file(self, file_path: str) -> str  # Returns confirmation message
+    def save_note(self, content: str) -> str
+    @property
+    def changed(self) -> bool  # Did we write notes this turn?
+```
+
+**Tool Definitions** (`klaus/notes.py:50`):
+```python
+SET_NOTES_FILE_TOOL = {
+    "name": "set_notes_file",
+    "description": "Set the active markdown file in the Obsidian vault",
+    "input_schema": {"type": "object", "properties": {"file_path": {"type": "string"}}},
+}
+
+SAVE_NOTE_TOOL = {
+    "name": "save_note",
+    "description": "Append content to the active note file",
+    "input_schema": {"type": "object", "properties": {"content": {"type": "string"}}},
+}
+```
+
+---
+
+### `search.py` (50 lines)
+
+**Purpose**: Tavily web search
+
+**Responsibilities**:
+- Execute web searches via Tavily API
+- Format results for Claude
+- Expose `web_search` tool
+
+**Tool Definition**:
+```python
+TOOL_DEFINITION = {
+    "name": "web_search",
+    "description": "Search the web for current information",
+    "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
+}
+```
+
+**Key APIs**:
+```python
+class WebSearch:
+    def search(self, query: str) -> str  # Returns formatted search results
+```
+
+---
+
+### `device_catalog.py` (221 lines)
+
+**Purpose**: Shared camera/mic enumeration
+
+**Responsibilities**:
+- Enumerate cameras with OpenCV
+- Get native camera names via AVFoundation on macOS
+- Enumerate microphones with sounddevice
+- Disambiguate duplicate mic labels
+- Mark system default devices
+
+**Key APIs**:
+```python
+@dataclass
+class CameraDevice:
+    index: int
+    display_name: str
+    width: int
+    height: int
+
+@dataclass
+class MicDevice:
+    index: int
+    display_name: str
+    is_default: bool
+
+def list_camera_devices(max_index: int = 10) -> list[CameraDevice]
+def list_input_devices() -> list[MicDevice]
+```
+
+---
+
+## UI Modules (`klaus/ui/`)
+
+### `theme.py` (586 lines)
+
+**Purpose**: Centralized styling
+
+**Responsibilities**:
+- Define palette tokens (colors, fonts, dimensions)
+- Single `application_stylesheet()` QSS string
+- Apply dark title bar on Windows via DWM API
+- Load bundled Inter font files
+
+**Key APIs**:
+```python
+def application_stylesheet() -> str
+def apply_dark_titlebar(hwnd: int) -> None  # Windows only
+def load_fonts() -> None  # Register Inter font family
+```
+
+**Palette**:
+```python
+COLORS = {
+    "bg_primary": "#1a1a1a",
+    "bg_secondary": "#242424",
+    "text_primary": "#e0e0e0",
+    "accent": "#4a9eff",
+    # ...
+}
+```
+
+---
+
+### `main_window.py` (204 lines)
+
+**Purpose**: Top-level window layout
+
+**Responsibilities**:
+- Splitter layout: session panel | chat widget
+- Header with settings button
+- Qt key event forwarding for in-app hotkeys
+
+---
+
+### `chat_widget.py` (260 lines)
+
+**Purpose**: Scrollable chat feed
+
+**Responsibilities**:
+- Display message cards (user + assistant)
+- Show page thumbnails when image context used
+- Replay button for re-speaking responses
+- Auto-scroll to bottom on new messages
+
+---
+
+### `session_panel.py` (190 lines)
+
+**Purpose**: Session list sidebar
+
+**Responsibilities**:
+- Display all sessions with titles
+- Context menu: rename, delete
+- Switch active session on click
+- Relative timestamps ("5 minutes ago")
+
+---
+
+### `setup_wizard.py` (904 lines)
+
+**Purpose**: First-run setup wizard
+
+**Responsibilities**:
+- 7-step wizard: welcome, API keys, camera, mic, model download, user background, done
+- Validate API keys by format (prefix + length)
+- Test camera/mic devices
+- Download Moonshine model with progress bar
+- Persist settings to `config.toml`
+
+---
+
+### `settings_dialog.py` (443 lines)
+
+**Purpose**: Settings UI
+
+**Responsibilities**:
+- Tabbed dialog: API Keys, Devices, Profile
+- Immediate apply for camera/mic (no Save button)
+- Emit signals for device changes
+- Reload API clients on Save
+
+---
+
+### `status_widget.py` (120 lines)
+
+**Purpose**: Status bar at bottom of window
+
+**Responsibilities**:
+- Display status: Idle, Listening, Thinking, Speaking
+- Mode toggle button (PTT ↔ VAD)
+- Stop button to interrupt TTS
+- Color-coded status indicator
+
+---
+
+### `camera_widget.py` (71 lines)
+
+**Purpose**: Live camera preview
+
+**Responsibilities**:
+- Display camera feed at ~30 fps
+- Convert OpenCV BGR → Qt QPixmap
+- Scale to fit widget
+
+---
+
+## Next Steps
+
+- [Query Routing](/architecture/query-routing) — Deep dive into routing logic and policies
+- [Data Flow](/architecture/data-flow) — End-to-end data flow walkthrough

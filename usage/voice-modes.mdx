@@ -1,0 +1,230 @@
+---
+title: Voice Modes
+description: Understanding voice-activated and push-to-talk input modes
+---
+
+Klaus supports two input modes for capturing your questions: **voice-activated** (default) and **push-to-talk**. You can switch between them at any time.
+
+## Voice-Activated Mode
+
+In voice-activated mode, Klaus continuously listens and automatically detects when you start and stop speaking.
+
+### How It Works
+
+<Steps>
+  <Step title="Klaus is always listening">
+    When the status bar shows **● Ready** (green), Klaus is actively monitoring for speech.
+  </Step>
+  
+  <Step title="You start speaking">
+    Klaus detects your voice using WebRTC Voice Activity Detection (VAD) and begins recording. The status changes to **● Listening** (blue).
+  </Step>
+  
+  <Step title="Klaus detects silence">
+    After 1.5 seconds of silence (configurable), Klaus finalizes your question and starts processing. The status changes to **● Thinking** (yellow).
+  </Step>
+</Steps>
+
+### Advantages
+
+- **Hands-free operation** - no need to hold a key
+- **Natural flow** - just speak when you have a question
+- **Fast study loops** - minimal friction between questions
+
+### Quality Filtering
+
+Voice-activated mode includes multiple layers of quality filtering to reject background noise and false triggers:
+
+- **Voiced ratio** - at least 28% of the audio must contain speech (not just noise)
+- **Minimum voiced frames** - at least 8 frames of 30ms must contain speech
+- **Minimum duration** - utterances shorter than 0.5 seconds are discarded
+- **RMS loudness** - audio must be louder than -45 dBFS (not just a whisper or hum)
+- **Contiguous voiced run** - at least 6 consecutive voiced frames (filters out clicks and pops)
+
+You can adjust these thresholds in `~/.klaus/config.toml` if you're experiencing false triggers or missed questions.
+
+### When to Use Voice-Activated Mode
+
+- You're in a quiet environment with minimal background noise
+- You want hands-free operation
+- You're reading from a physical book and need both hands free
+- You prefer a conversational, natural flow
+
+## Push-to-Talk Mode
+
+In push-to-talk mode, you hold a hotkey to record your question and release it to send.
+
+### How It Works
+
+<Steps>
+  <Step title="Hold the hotkey">
+    Press and hold your push-to-talk key (default: `§` on macOS, `F2` on Windows). The status changes to **● Listening** (blue).
+  </Step>
+  
+  <Step title="Speak your question">
+    While holding the key, speak your question clearly.
+  </Step>
+  
+  <Step title="Release to send">
+    Release the hotkey when you're done speaking. Klaus immediately starts processing your question.
+  </Step>
+</Steps>
+
+### Advantages
+
+- **Precise control** - you decide exactly when to record
+- **Works in noisy environments** - no risk of false triggers
+- **No silence timeout** - you can pause mid-question without it being finalized
+- **Instant send** - no waiting for silence detection
+
+### When to Use Push-to-Talk Mode
+
+- You're in a noisy environment (coffee shop, library, shared office)
+- You want precise control over when Klaus listens
+- You're asking complex questions and need time to think mid-sentence
+- You're testing Klaus or demonstrating it to others
+
+## Switching Between Modes
+
+You can toggle between voice-activated and push-to-talk at any time:
+
+### Using the Status Bar
+
+Click the mode button in the status bar:
+
+- **PTT** - currently in push-to-talk mode, click to switch to voice-activated
+- **Voice** - currently in voice-activated mode, click to switch to push-to-talk
+
+### Using the Toggle Hotkey
+
+Press your toggle key (default: `§` on macOS, `F3` on Windows) to switch modes.
+
+<Tip>
+  The hotkey hint in the status bar updates to show the current mode:
+  - Push-to-talk: "Hold § to speak · § to switch"
+  - Voice-activated: "Just speak · § to switch mode"
+</Tip>
+
+## Configuring Voice-Activated Settings
+
+All VAD settings live in `~/.klaus/config.toml`. Edit the file and restart Klaus to apply changes.
+
+### Sensitivity (0-3)
+
+```toml
+vad_sensitivity = 3
+```
+
+Higher values apply more aggressive noise filtering. Default is `3` (most aggressive).
+
+- **0** - least aggressive, may pick up more background noise
+- **3** - most aggressive, stricter about what counts as speech
+
+### Silence Timeout (seconds)
+
+```toml
+vad_silence_timeout = 1.5
+```
+
+How long Klaus waits after detecting silence before finalizing your question. Default is `1.5` seconds.
+
+- **Shorter** (e.g., `1.0`) - faster response, but may cut off if you pause mid-sentence
+- **Longer** (e.g., `2.0`) - more forgiving of pauses, but adds latency
+
+### Minimum Duration (seconds)
+
+```toml
+vad_min_duration = 0.5
+```
+
+Utterances shorter than this are discarded. Default is `0.5` seconds.
+
+### Minimum Voiced Ratio (0.0-1.0)
+
+```toml
+vad_min_voiced_ratio = 0.28
+```
+
+The fraction of the recording that must contain speech (vs. silence or noise). Default is `0.28` (28%).
+
+### Minimum Voiced Frames
+
+```toml
+vad_min_voiced_frames = 8
+```
+
+How many 30ms frames must contain speech. Default is `8` frames (240ms of speech).
+
+### Minimum RMS Loudness (dBFS)
+
+```toml
+vad_min_rms_dbfs = -45.0
+```
+
+The minimum loudness in dBFS (decibels relative to full scale). Default is `-45.0`.
+
+- **Higher** (e.g., `-40.0`) - stricter, rejects quieter audio
+- **Lower** (e.g., `-50.0`) - more permissive, accepts quieter speech
+
+### Minimum Voiced Run Frames
+
+```toml
+vad_min_voiced_run_frames = 6
+```
+
+The longest contiguous run of voiced frames required. Default is `6` frames (180ms). Helps reject clicks and pops.
+
+## Configuring Push-to-Talk Hotkey
+
+Edit `~/.klaus/config.toml` and restart Klaus:
+
+```toml
+hotkey = "F2"  # or any other key, e.g., "F4", "F5", "space"
+```
+
+Valid values include:
+
+- **Function keys**: `F1`, `F2`, `F3`, ..., `F12`
+- **Single characters**: `a`, `b`, `§`, `~`, etc.
+- **Special keys**: `space`, `tab`, `esc`
+
+<Note>
+  On macOS, the section key `§` (to the left of `1`) is the default. On Windows, `F2` is the default.
+</Note>
+
+## Configuring Toggle Hotkey
+
+Edit `~/.klaus/config.toml` and restart Klaus:
+
+```toml
+toggle_key = "F3"  # or any other key
+```
+
+## Troubleshooting
+
+### Voice-Activated Mode Not Detecting Speech
+
+1. **Check the status bar** - if it shows "● Idle" instead of "● Ready", you're in push-to-talk mode. Click the mode button to switch.
+2. **Lower the sensitivity** - try `vad_sensitivity = 2` in `config.toml`
+3. **Lower the RMS threshold** - try `vad_min_rms_dbfs = -50.0`
+4. **Check your microphone** - open Settings and verify the correct mic is selected
+
+### Voice-Activated Mode Picking Up Background Noise
+
+1. **Increase the sensitivity** - try `vad_sensitivity = 3` (if not already)
+2. **Increase the voiced ratio** - try `vad_min_voiced_ratio = 0.35`
+3. **Increase the RMS threshold** - try `vad_min_rms_dbfs = -40.0`
+4. **Switch to push-to-talk mode** for noisy environments
+
+### Voice-Activated Mode Cutting Off Mid-Sentence
+
+1. **Increase the silence timeout** - try `vad_silence_timeout = 2.0`
+2. **Speak more continuously** - avoid long pauses in the middle of your question
+3. **Use push-to-talk mode** for complex, multi-part questions
+
+### Push-to-Talk Hotkey Not Working
+
+1. **Check if the Klaus window is focused** - in-app hotkeys only work when Klaus is in the foreground
+2. **On macOS, grant Accessibility permission** for global hotkeys to work when Klaus is in the background
+3. **Try a different key** - some keys may conflict with system shortcuts (e.g., F3 opens Mission Control on macOS)
+4. **Check the logs** - Klaus logs hotkey listener startup and failures at `INFO` level

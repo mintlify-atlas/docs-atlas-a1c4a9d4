@@ -1,0 +1,243 @@
+---
+title: "MainWindow"
+description: "Klaus main application window with layout, signals, and hotkey handling"
+---
+
+## Overview
+
+The `MainWindow` class is the top-level PyQt6 window for Klaus. It assembles the camera widget, chat feed, session panel, and status bar into a unified interface with a horizontal splitter layout.
+
+**Module**: `klaus.ui.main_window`
+
+**Inherits**: `QMainWindow` (PyQt6)
+
+## Class Definition
+
+```python
+class MainWindow(QMainWindow):
+    """Klaus main application window."""
+```
+
+## Signals
+
+MainWindow emits PyQt6 signals for user actions:
+
+<ParamField path="session_changed" type="pyqtSignal(str)">
+  Emitted when the user selects a different session. Argument is `session_id`.
+</ParamField>
+
+<ParamField path="new_session_requested" type="pyqtSignal(str)">
+  Emitted when the user creates a new session. Argument is the session `title`.
+</ParamField>
+
+<ParamField path="rename_requested" type="pyqtSignal(str, str)">
+  Emitted when the user renames a session. Arguments are `session_id` and `new_title`.
+</ParamField>
+
+<ParamField path="delete_requested" type="pyqtSignal(str)">
+  Emitted when the user deletes a session. Argument is `session_id`.
+</ParamField>
+
+<ParamField path="replay_requested" type="pyqtSignal(str)">
+  Emitted when the user replays an exchange. Argument is `exchange_id`.
+</ParamField>
+
+<ParamField path="mode_toggle_requested" type="pyqtSignal()">
+  Emitted when the user toggles between push-to-talk and voice-activated mode.
+</ParamField>
+
+<ParamField path="stop_requested" type="pyqtSignal()">
+  Emitted when the user stops the current operation.
+</ParamField>
+
+<ParamField path="settings_requested" type="pyqtSignal()">
+  Emitted when the user clicks the settings gear button.
+</ParamField>
+
+<ParamField path="ptt_key_pressed" type="pyqtSignal()">
+  Emitted when the push-to-talk key is pressed down.
+</ParamField>
+
+<ParamField path="ptt_key_released" type="pyqtSignal()">
+  Emitted when the push-to-talk key is released.
+</ParamField>
+
+<ParamField path="toggle_key_pressed" type="pyqtSignal()">
+  Emitted when the mode toggle key is pressed.
+</ParamField>
+
+## Constructor
+
+```python
+def __init__(self):
+```
+
+Initializes the main window with a default size of 1100x700 (minimum 900x600). Sets up:
+
+- Header with app title, session title label, and settings button
+- Horizontal splitter with camera/session panel on the left (300px) and chat widget on the right (700px)
+- Status widget at the bottom
+- Dark theme and title bar styling
+
+## Layout Structure
+
+The window uses a `QVBoxLayout` with three main sections:
+
+1. **Header** (`QWidget` with `#klaus-header` object name)
+   - Fixed height: `theme.HEADER_HEIGHT`
+   - Contains app title, session title label, and settings button
+
+2. **Body** (`QSplitter` horizontal)
+   - **Left panel**: Camera preview + session list
+   - **Right panel**: Chat widget
+   - Initial sizes: `[300, 700]`
+
+3. **Status bar** (`StatusWidget`)
+   - Shows current mode (Idle/Listening/Thinking/Speaking)
+   - Contains mode toggle and stop buttons
+
+## Widget Properties
+
+<ParamField path="camera_widget" type="CameraWidget">
+  Live camera preview widget in the left panel.
+</ParamField>
+
+<ParamField path="session_panel" type="SessionPanel">
+  Session list sidebar with context menu for rename/delete.
+</ParamField>
+
+<ParamField path="chat_widget" type="ChatWidget">
+  Scrollable chat feed showing conversation history.
+</ParamField>
+
+<ParamField path="status_widget" type="StatusWidget">
+  Status bar at the bottom with mode indicator and controls.
+</ParamField>
+
+## Methods
+
+### Session Management
+
+```python
+def set_sessions(
+    self,
+    sessions: list[dict],
+    current_id: str | None = None,
+) -> None:
+```
+
+Populates the session panel with a list of sessions. Each dict should contain `id`, `title`, and optionally `updated_at` and `exchange_count`.
+
+```python
+def set_current_session_title(self, title: str) -> None:
+```
+
+Updates the header subtitle with the active session name.
+
+```python
+def get_current_session_id(self) -> str | None:
+```
+
+Returns the currently selected session ID from the session panel.
+
+### Hotkey Configuration
+
+```python
+def set_hotkeys(self, ptt_key: str, toggle_key: str) -> None:
+```
+
+Configures which keys trigger push-to-talk and mode toggle via Qt events. Accepts key names like `"F2"`, `"F3"`, `"Space"`, etc. Resolves keys using `resolve_qt_key()` helper.
+
+On macOS with identical PTT and toggle keys, the toggle hint is updated to show `Shift+{key}` for disambiguation.
+
+**Parameters**:
+- `ptt_key`: Key name for push-to-talk (e.g. `"F2"`)
+- `toggle_key`: Key name for mode toggle (e.g. `"F3"`)
+
+### Keyboard Event Handling
+
+```python
+def keyPressEvent(self, event: QKeyEvent) -> None:
+```
+
+Overrides PyQt6 key press handler. Ignores auto-repeat events. Uses `hotkey_action_for_keypress()` to determine if the key should trigger PTT or toggle based on:
+- Key value
+- Shift modifier state
+- Configured PTT and toggle keys
+- Platform (macOS uses shifted variants for same-key PTT/toggle)
+
+Emits `ptt_key_pressed` or `toggle_key_pressed` signals accordingly.
+
+```python
+def keyReleaseEvent(self, event: QKeyEvent) -> None:
+```
+
+Overrides PyQt6 key release handler. Emits `ptt_key_released` when the PTT key is released and was previously armed.
+
+## Helper Functions
+
+### resolve_qt_key
+
+```python
+def resolve_qt_key(key_name: str) -> int:
+```
+
+Maps a config key name (e.g. `'F2'`) to a `Qt.Key` integer value. Supports:
+- Function keys: `F1` - `F12`
+- Special keys: `Space`, `Escape`, `Tab`, `Backspace`
+- Single characters: Converted to uppercase ASCII code
+
+**Raises**: `ValueError` if the key name is unrecognized.
+
+### hotkey_action_for_keypress
+
+```python
+def hotkey_action_for_keypress(
+    *,
+    key: int,
+    shift_pressed: bool,
+    ptt_key: int,
+    toggle_key: int,
+    platform_name: str,
+) -> str | None:
+```
+
+Returns `"ptt_down"`, `"toggle"`, or `None` based on key press analysis.
+
+**macOS special case**: When PTT and toggle keys are the same on Darwin, unshifted triggers `"ptt_down"` and shifted triggers `"toggle"`.
+
+**Shifted variants**: Applies `_QT_SHIFTED_VARIANTS` mapping (e.g. `±` → `§` on macOS ISO keyboards).
+
+## Usage Example
+
+```python
+from klaus.ui.main_window import MainWindow
+from PyQt6.QtWidgets import QApplication
+
+app = QApplication([])
+window = MainWindow()
+
+# Connect signals
+window.session_changed.connect(lambda sid: print(f"Session changed: {sid}"))
+window.ptt_key_pressed.connect(lambda: print("PTT pressed"))
+window.ptt_key_released.connect(lambda: print("PTT released"))
+
+# Configure hotkeys
+window.set_hotkeys(ptt_key="F2", toggle_key="F3")
+
+# Populate sessions
+window.set_sessions([
+    {"id": "sess-1", "title": "Research", "updated_at": 1234567890, "exchange_count": 5},
+    {"id": "sess-2", "title": "Notes", "updated_at": 1234567900, "exchange_count": 3},
+], current_id="sess-1")
+
+window.show()
+app.exec()
+```
+
+## Notes
+
+- **Qt key events** only fire when the window is focused; global hotkeys require `pynput` backend (see `main.py`)
+- **Dark title bar** is applied via `theme.apply_dark_titlebar()` on Windows
+- **Auto-repeat** key events are ignored to prevent duplicate signals
+- **Splitter** allows user to resize left/right panels; left panel stretch factor is 0, right is 1

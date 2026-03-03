@@ -1,0 +1,226 @@
+---
+title: "ChatWidget"
+description: "Scrollable chat feed with message cards, thumbnails, and replay functionality"
+---
+
+## Overview
+
+The `ChatWidget` displays the conversation history as a scrollable feed of message cards. It handles auto-scrolling, empty states, and per-message actions like copy and replay.
+
+**Module**: `klaus.ui.chat_widget`
+
+**Inherits**: `QWidget` (PyQt6)
+
+## Class Definition
+
+```python
+class ChatWidget(QWidget):
+    """Scrollable chat feed showing the conversation history."""
+```
+
+## Signals
+
+<ParamField path="replay_requested" type="pyqtSignal(str)">
+  Emitted when the user clicks the replay button on an assistant message. Argument is `exchange_id`.
+</ParamField>
+
+## Constructor
+
+```python
+def __init__(self, parent: QWidget | None = None):
+```
+
+Initializes the chat widget with:
+- A `QScrollArea` containing a vertical layout aligned to the bottom
+- An empty state label: "Place a page under the camera and ask a question"
+- Auto-scroll behavior: scrolls to bottom when new messages arrive and user is near the bottom
+
+## Layout Structure
+
+The widget uses a `QVBoxLayout` with:
+- `QScrollArea` (`#chat-scroll` object name)
+  - `QWidget` container with `QVBoxLayout` (aligned bottom)
+    - Empty state `QLabel` (`#chat-empty`)
+    - Message cards (`MessageCard` instances)
+    - Status messages (`QLabel` with `#chat-status-msg`)
+
+## Methods
+
+### Adding Messages
+
+```python
+def add_message(
+    self,
+    role: str,
+    text: str,
+    timestamp: float | None = None,
+    thumbnail_bytes: bytes | None = None,
+    exchange_id: str = "",
+) -> None:
+```
+
+Adds a message card to the chat feed.
+
+**Parameters**:
+- `role`: `"user"` or `"assistant"`
+- `text`: Message body
+- `timestamp`: Unix timestamp (optional, displayed as relative time)
+- `thumbnail_bytes`: JPEG/PNG image bytes for user messages (optional)
+- `exchange_id`: Unique ID for replay functionality
+
+**Behavior**:
+- Hides the empty state label
+- Preserves auto-scroll state if user was near the bottom
+- Appends `MessageCard` to the layout
+- Connects the card's `replay_requested` signal to the widget's signal
+
+```python
+def add_status_message(self, text: str) -> None:
+```
+
+Adds a centered status message (e.g. "Listening...") to the feed.
+
+### Clearing
+
+```python
+def clear(self) -> None:
+```
+
+Removes all message cards and status messages from the feed. Shows the empty state label and resets auto-scroll.
+
+### Scrolling
+
+```python
+def scroll_to_bottom(self) -> None:
+```
+
+Schedules a deferred scroll to the bottom after layout settles. Uses two `QTimer.singleShot` calls at 0ms and 100ms to ensure the scroll happens after Qt finishes layout updates.
+
+## Auto-Scroll Behavior
+
+The widget automatically scrolls to the bottom when:
+- New messages are added and the user is within `_SCROLL_THRESHOLD` (30px) of the bottom
+- The scroll range changes (e.g. after adding a widget)
+
+**Implementation**:
+- `_is_near_bottom()`: Checks if scroll value is within 30px of maximum
+- `_on_scroll_value_changed()`: Updates `_auto_scroll` flag when user scrolls
+- `_on_range_changed()`: Scrolls to bottom if `_auto_scroll` is true
+- `_do_scroll_to_bottom()`: Sets scroll value to maximum
+
+## MessageCard Class
+
+```python
+class MessageCard(QFrame):
+    """A single message card in the chat feed."""
+```
+
+### Signals
+
+<ParamField path="replay_requested" type="pyqtSignal(str)">
+  Emitted when the user clicks the replay button. Argument is `exchange_id`.
+</ParamField>
+
+### Constructor
+
+```python
+def __init__(
+    self,
+    role: str,
+    text: str,
+    timestamp: float | None = None,
+    thumbnail_bytes: bytes | None = None,
+    exchange_id: str = "",
+    parent: QWidget | None = None,
+):
+```
+
+**Parameters**:
+- `role`: `"user"` or `"assistant"`
+- `text`: Message body
+- `timestamp`: Unix timestamp (optional)
+- `thumbnail_bytes`: Image bytes for user messages (optional, scaled to max 500x180)
+- `exchange_id`: ID for replay functionality
+- `parent`: Parent widget
+
+### Layout Structure
+
+Each card contains:
+
+1. **Header row** (`QHBoxLayout`)
+   - Role label ("You" or "Klaus")
+   - Relative timestamp with tooltip
+   - **Copy button** (assistant messages only)
+   - **Replay button** (assistant messages only)
+
+2. **Thumbnail** (user messages only)
+   - Scaled to max 500x180 with aspect ratio preserved
+   - Max height: 180px
+
+3. **Body text**
+   - Word-wrapped, selectable text
+
+### Styling
+
+Cards use:
+- Object name: `#message-card`
+- Role property: `role="user"` or `role="assistant"` (for QSS selectors)
+- Padding: `theme.CARD_PADDING_H` x `theme.CARD_PADDING_V`
+
+### Copy Button Behavior
+
+```python
+@staticmethod
+def _copy_text(text: str, btn: QPushButton) -> None:
+```
+
+Copies text to clipboard and temporarily changes button text to "✔ copied" for 1.5 seconds.
+
+## Usage Example
+
+```python
+from klaus.ui.chat_widget import ChatWidget
+from PyQt6.QtWidgets import QApplication
+
+app = QApplication([])
+chat = ChatWidget()
+
+# Connect replay signal
+chat.replay_requested.connect(lambda eid: print(f"Replay: {eid}"))
+
+# Add user message with thumbnail
+with open("page.jpg", "rb") as f:
+    thumb = f.read()
+chat.add_message(
+    role="user",
+    text="What is the main idea of this paragraph?",
+    timestamp=1234567890.5,
+    thumbnail_bytes=thumb,
+    exchange_id="ex-1",
+)
+
+# Add assistant response
+chat.add_message(
+    role="assistant",
+    text="The paragraph explains how quantum entanglement...",
+    timestamp=1234567895.0,
+    exchange_id="ex-1",
+)
+
+# Add status message
+chat.add_status_message("Listening...")
+
+# Clear all
+chat.clear()
+
+chat.show()
+app.exec()
+```
+
+## Notes
+
+- **Relative timestamps**: Formatted using `format_relative_time_with_tooltip()` from `klaus.ui.shared.relative_time`
+- **Thumbnails**: Only shown for user messages; loaded from bytes using `QPixmap.loadFromData()`
+- **Scroll threshold**: 30px (`_SCROLL_THRESHOLD`)
+- **Deferred scrolling**: Uses two timer shots (0ms + 100ms) to ensure layout is complete
+- **Empty state**: Shown when no messages are present

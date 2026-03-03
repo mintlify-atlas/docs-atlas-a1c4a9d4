@@ -1,0 +1,91 @@
+---
+title: Speech-to-Text (STT)
+description: Local on-device speech transcription using Moonshine Voice
+---
+
+## Overview
+
+Klaus uses **Moonshine Voice** for local, on-device speech-to-text transcription. No audio is sent to external APIs.
+
+## SpeechToText Class
+
+The `SpeechToText` class provides WAV audio transcription using the Moonshine Voice library.
+
+### Constructor
+
+```python
+from klaus.stt import SpeechToText
+import klaus.config as config
+
+stt = SpeechToText(settings=None)
+```
+
+<ParamField path="settings" type="config.RuntimeSettings | None" default="None">
+  Optional runtime settings. If `None`, reads from `config.get_runtime_settings()`.
+</ParamField>
+
+### Methods
+
+#### `transcribe(wav_bytes: bytes) -> str`
+
+Transcribe WAV audio bytes to text.
+
+<ParamField path="wav_bytes" type="bytes" required>
+  WAV-encoded audio data (mono or stereo, 16-bit PCM)
+</ParamField>
+
+**Returns:** Transcribed text as a string.
+
+**Example:**
+
+```python
+from klaus.stt import SpeechToText
+
+stt = SpeechToText()
+
+with open("recording.wav", "rb") as f:
+    wav_bytes = f.read()
+
+transcript = stt.transcribe(wav_bytes)
+print(transcript)
+```
+
+#### `reload_settings(settings: config.RuntimeSettings | None = None) -> None`
+
+Reload settings and reinitialize the Moonshine transcriber.
+
+<ParamField path="settings" type="config.RuntimeSettings | None" default="None">
+  New runtime settings. If `None`, reads from `config.get_runtime_settings()`.
+</ParamField>
+
+## Configuration
+
+STT settings are configured in `~/.klaus/config.toml`:
+
+```toml
+[stt]
+backend = "moonshine"
+moonshine_model = "base"  # or "tiny"
+moonshine_language = "en"
+```
+
+### Supported Models
+
+- `tiny` - Fastest, lower accuracy
+- `base` - Default, good balance of speed and accuracy
+
+### Supported Languages
+
+- `en` - English (default)
+- Additional languages may be supported depending on Moonshine Voice version
+
+## Implementation Details
+
+- **Local processing**: All transcription happens on-device. No network calls.
+- **First-run download**: The model is downloaded and compiled on first use (10-30 seconds).
+- **Windows DLL preload**: On Windows, `moonshine.dll` is preloaded before PyQt6 to avoid DLL conflicts.
+- **Audio format**: Accepts WAV files; automatically converts stereo to mono and normalizes to float32 in [-1, 1].
+
+## Source Reference
+
+See `klaus/stt.py` for the full implementation.

@@ -1,0 +1,287 @@
+---
+title: 'Audio'
+description: 'Audio recording and playback classes for Klaus'
+---
+
+## PushToTalkRecorder
+
+Records audio while a key is held, producing a WAV buffer on release.
+
+### Constructor
+
+```python
+PushToTalkRecorder(sample_rate: int = SAMPLE_RATE)
+```
+
+<ParamField path="sample_rate" type="int" default="16000">
+  Audio sample rate in Hz
+</ParamField>
+
+**Location:** audio.py:36
+
+### Methods
+
+#### start_recording()
+
+Begin capturing audio from the microphone.
+
+```python
+def start_recording() -> None:
+```
+
+**Location:** audio.py:43-63
+
+#### stop_recording()
+
+Stop recording and return WAV bytes, or None if nothing was captured.
+
+```python
+def stop_recording() -> bytes | None:
+```
+
+<ResponseField name="wav_bytes" type="bytes | None">
+  WAV-encoded audio data, or None if no audio was captured
+</ResponseField>
+
+**Location:** audio.py:77-95
+
+### Properties
+
+<ResponseField name="is_recording" type="bool">
+  Whether the recorder is currently capturing audio
+</ResponseField>
+
+**Location:** audio.py:97-99
+
+---
+
+## VoiceActivatedRecorder
+
+Continuously listens and uses webrtcvad to detect speech boundaries.
+
+### Constructor
+
+```python
+VoiceActivatedRecorder(
+    on_speech_start: Callable[[], None],
+    on_speech_end: Callable[[bytes], None],
+    on_speech_discard: Callable[[str], None] | None = None,
+    sample_rate: int = SAMPLE_RATE,
+    sensitivity: int = 2,
+    silence_timeout: float = 1.5,
+    min_voiced_ratio: float = 0.25,
+    min_voiced_frames: int = 5,
+    min_duration: float = 0.3,
+    min_rms_dbfs: float = -45.0,
+    min_voiced_run_frames: int = 6,
+    device: int | None = None,
+)
+```
+
+<ParamField path="on_speech_start" type="Callable[[], None]" required>
+  Callback invoked when speech begins
+</ParamField>
+
+<ParamField path="on_speech_end" type="Callable[[bytes], None]" required>
+  Callback invoked with WAV bytes when speech ends
+</ParamField>
+
+<ParamField path="on_speech_discard" type="Callable[[str], None] | None" default="None">
+  Callback invoked with reason when utterance is discarded
+</ParamField>
+
+<ParamField path="sample_rate" type="int" default="16000">
+  Audio sample rate in Hz
+</ParamField>
+
+<ParamField path="sensitivity" type="int" default="2">
+  WebRTC VAD sensitivity (0-3, higher = more aggressive filtering)
+</ParamField>
+
+<ParamField path="silence_timeout" type="float" default="1.5">
+  Seconds of silence before finalizing speech
+</ParamField>
+
+<ParamField path="min_voiced_ratio" type="float" default="0.25">
+  Minimum ratio of voiced frames to total frames
+</ParamField>
+
+<ParamField path="min_voiced_frames" type="int" default="5">
+  Minimum number of voiced frames required
+</ParamField>
+
+<ParamField path="min_duration" type="float" default="0.3">
+  Minimum utterance duration in seconds
+</ParamField>
+
+<ParamField path="min_rms_dbfs" type="float" default="-45.0">
+  Minimum RMS loudness in dBFS
+</ParamField>
+
+<ParamField path="min_voiced_run_frames" type="int" default="6">
+  Minimum contiguous voiced run of 30ms frames
+</ParamField>
+
+<ParamField path="device" type="int | None" default="None">
+  Input device index, or None for system default
+</ParamField>
+
+**Location:** audio.py:105-155
+
+### Methods
+
+#### start()
+
+Open the mic stream and begin VAD detection.
+
+```python
+def start() -> None:
+```
+
+**Location:** audio.py:157-202
+
+#### stop()
+
+Stop the stream and discard any in-progress speech.
+
+```python
+def stop() -> None:
+```
+
+**Location:** audio.py:204-219
+
+#### pause()
+
+Pause detection (e.g. while Klaus is speaking).
+
+```python
+def pause() -> None:
+```
+
+**Location:** audio.py:221-232
+
+#### resume()
+
+Resume detection after pause.
+
+```python
+def resume() -> None:
+```
+
+**Location:** audio.py:234-243
+
+#### suspend_stream()
+
+Stop the physical mic stream. Safe to call from non-callback threads.
+
+Use this (instead of pause) when you need to free the CoreAudio device, e.g. before TTS playback. Call `resume_stream()` to reopen.
+
+```python
+def suspend_stream() -> None:
+```
+
+**Location:** audio.py:245-258
+
+#### resume_stream()
+
+Reopen the physical mic stream after `suspend_stream()`.
+
+```python
+def resume_stream() -> None:
+```
+
+**Location:** audio.py:260-276
+
+### Properties
+
+<ResponseField name="is_running" type="bool">
+  Whether the VAD is actively listening
+</ResponseField>
+
+<ResponseField name="is_paused" type="bool">
+  Whether detection is paused
+</ResponseField>
+
+**Location:** audio.py:443-449
+
+---
+
+## AudioPlayer
+
+Plays raw PCM or WAV audio through the default output device.
+
+### Constructor
+
+```python
+AudioPlayer(sample_rate: int = 24000)
+```
+
+<ParamField path="sample_rate" type="int" default="24000">
+  Audio sample rate in Hz
+</ParamField>
+
+**Location:** audio.py:455
+
+### Methods
+
+#### play_wav_bytes()
+
+Play a complete WAV buffer. Blocks until playback finishes or `stop()` is called.
+
+```python
+def play_wav_bytes(wav_data: bytes) -> None:
+```
+
+<ParamField path="wav_data" type="bytes" required>
+  WAV-encoded audio data
+</ParamField>
+
+**Location:** audio.py:460-481
+
+#### stop()
+
+Stop playback immediately.
+
+```python
+def stop() -> None:
+```
+
+**Location:** audio.py:483-485
+
+---
+
+## Utility Functions
+
+### to_wav_bytes()
+
+Convert int16 numpy audio to WAV bytes.
+
+```python
+def to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> bytes:
+```
+
+<ParamField path="audio" type="np.ndarray" required>
+  Audio samples as int16 numpy array
+</ParamField>
+
+<ParamField path="sample_rate" type="int" default="16000">
+  Sample rate in Hz
+</ParamField>
+
+<ResponseField name="wav_bytes" type="bytes">
+  WAV-encoded audio data
+</ResponseField>
+
+**Location:** audio.py:22-30
+
+## Constants
+
+```python
+SAMPLE_RATE = 16000
+CHANNELS = 1
+DTYPE = "int16"
+FRAME_DURATION_MS = 30
+FRAME_SIZE = 480  # samples @ 16 kHz
+```
+
+**Location:** audio.py:14-19

@@ -1,0 +1,133 @@
+---
+title: "CameraWidget"
+description: "Live camera preview widget with frame updates and scaling"
+---
+
+## Overview
+
+The `CameraWidget` displays a live preview of the camera feed at ~30 FPS. It binds to a `Camera` instance and updates the preview using a Qt timer.
+
+**Module**: `klaus.ui.camera_widget`
+
+**Inherits**: `QWidget` (PyQt6)
+
+## Class Definition
+
+```python
+class CameraWidget(QWidget):
+    """Compact live camera preview."""
+```
+
+## Constants
+
+<ParamField path="PREVIEW_WIDTH" type="int">
+  Maximum preview width in pixels. Set to `theme.CAMERA_PREVIEW_WIDTH` (280).
+</ParamField>
+
+## Constructor
+
+```python
+def __init__(self, parent: QWidget | None = None):
+```
+
+Initializes the camera preview widget with:
+- A `QLabel` for displaying the video frame (`#camera-preview` object name)
+- Minimum size: 280x210
+- Maximum height: 300px
+- Maximum width: `PREVIEW_WIDTH` (280px)
+- A `QTimer` for periodic frame updates (not started until `set_camera()` is called)
+
+## Layout Structure
+
+The widget uses a `QVBoxLayout` with:
+- `QLabel` (`_video_label`) centered, fixed size 280x210
+
+## Methods
+
+### Binding a Camera
+
+```python
+def set_camera(self, camera) -> None:
+```
+
+Binds a `Camera` instance and starts the preview if the camera is running.
+
+**Parameters**:
+- `camera`: A `klaus.camera.Camera` instance (or `None` to unbind)
+
+**Behavior**:
+- If `camera` is not `None` and `camera.is_running` is `True`, starts a 33ms timer (~30 FPS)
+- Otherwise, stops the timer
+
+### Updating Frames
+
+```python
+def _update_frame(self) -> None:
+```
+
+**Internal method**: Called by the timer every 33ms. Fetches the latest RGB frame from the camera using `camera.get_frame_rgb()`, scales it to fit `PREVIEW_WIDTH`, and displays it in the `QLabel`.
+
+**Scaling**:
+- If frame width > `PREVIEW_WIDTH`, scales down using `cv2.INTER_AREA` interpolation
+- Preserves aspect ratio
+
+**Conversion**:
+- Ensures frame is contiguous in memory (`np.ascontiguousarray`)
+- Converts to `QImage` with `Format_RGB888`
+- Converts to `QPixmap` and sets on the label
+
+### Stopping
+
+```python
+def stop(self) -> None:
+```
+
+Stops the timer and freezes the preview. Does not release the camera; use `set_camera(None)` to unbind.
+
+## Frame Update Pipeline
+
+1. **Timer fires** every 33ms (if camera is running)
+2. **Fetch frame** via `camera.get_frame_rgb()` (returns `numpy.ndarray` or `None`)
+3. **Scale** if width > 280px using OpenCV `resize`
+4. **Convert** to `QImage` (RGB888 format)
+5. **Display** as `QPixmap` in the `QLabel`
+
+## Dependencies
+
+- **cv2** (OpenCV): For frame resizing
+- **numpy**: For array operations
+- **PyQt6**: `QWidget`, `QLabel`, `QTimer`, `QImage`, `QPixmap`
+- **klaus.ui.theme**: For `CAMERA_PREVIEW_WIDTH` constant
+
+## Usage Example
+
+```python
+from klaus.camera import Camera
+from klaus.ui.camera_widget import CameraWidget
+from PyQt6.QtWidgets import QApplication
+
+app = QApplication([])
+widget = CameraWidget()
+
+# Create and start camera
+camera = Camera(device_index=0)
+camera.start()
+
+# Bind camera to widget
+widget.set_camera(camera)
+
+widget.show()
+app.exec()
+
+# Stop preview
+widget.stop()
+camera.stop()
+```
+
+## Notes
+
+- **Frame rate**: ~30 FPS (33ms timer interval)
+- **Scaling**: Only width is constrained; height scales proportionally
+- **No frame drop**: If `get_frame_rgb()` returns `None`, the widget silently skips the update
+- **Object name**: `#camera-preview` for QSS styling
+- **Max dimensions**: 280px wide, 300px tall

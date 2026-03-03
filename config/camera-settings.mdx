@@ -1,0 +1,179 @@
+---
+title: "Camera Settings"
+description: "Configure camera resolution, rotation, and device selection"
+---
+
+Klaus requires a camera to see the pages you're reading. These settings control camera device selection, image resolution, and automatic rotation.
+
+## Camera Device
+
+<ParamField path="camera_index" type="integer" default="0">
+  Index of the camera device to use.
+  
+  **Default**: `0` (first camera detected by the system)
+  
+  If you have multiple cameras, you can select which one Klaus uses:
+  - `0` = First camera
+  - `1` = Second camera
+  - `2` = Third camera, etc.
+  
+  <Tip>
+    Use Klaus's Settings dialog to see a list of available cameras and select the correct one. The index will be saved automatically.
+  </Tip>
+</ParamField>
+
+## Resolution
+
+<ParamField path="camera_width" type="integer" default="1920">
+  Camera capture width in pixels.
+  
+  **Default**: `1920` (Full HD width)
+</ParamField>
+
+<ParamField path="camera_height" type="integer" default="1080">
+  Camera capture height in pixels.
+  
+  **Default**: `1080` (Full HD height)
+  
+  <Info>
+    Klaus defaults to 1920×1080 (1080p) for optimal text clarity. Lower resolutions may reduce OCR accuracy for small text.
+  </Info>
+</ParamField>
+
+### Supported Resolutions
+
+Common resolution presets:
+
+| Resolution | Width | Height | Notes |
+|------------|-------|--------|-------|
+| **1080p** (default) | 1920 | 1080 | Best quality, recommended |
+| **720p** | 1280 | 720 | Good quality, faster |
+| **480p** | 640 | 480 | Low quality, not recommended |
+
+<Warning>
+  Your camera must support the specified resolution. If the camera doesn't support the configured resolution, OpenCV will fall back to the closest available resolution.
+</Warning>
+
+## Rotation
+
+<ParamField path="camera_rotation" type="string" default="auto">
+  How to rotate camera frames before sending to Claude.
+  
+  **Options**:
+  - `auto`: Automatically rotate portrait frames to landscape (default)
+  - `none`: No rotation, use image as-is
+  - `90`: Rotate 90° clockwise
+  - `180`: Rotate 180°
+  - `270`: Rotate 270° clockwise (same as 90° counter-clockwise)
+  
+  **Auto-rotation behavior**:
+  - Detects portrait orientation (height > width)
+  - Rotates 90° clockwise to landscape
+  - Useful for phone cameras in portrait mode
+</ParamField>
+
+### When to Use Each Setting
+
+| Setting | Use Case |
+|---------|----------|
+| `auto` | Phone camera or any camera that might be in portrait orientation |
+| `none` | Document camera or webcam that's always landscape |
+| `90` | Image is rotated 90° and auto-detection fails |
+| `180` | Camera is upside-down |
+| `270` | Image is rotated 270° and auto-detection fails |
+
+## Example Configuration
+
+```toml config.toml
+# Use second camera at 720p with auto-rotation
+camera_index = 1
+camera_width = 1280
+camera_height = 720
+camera_rotation = "auto"
+```
+
+## Camera Setup Recommendations
+
+### Document Cameras (Recommended)
+
+USB document cameras (also called visualisers) provide the best experience:
+
+- Stable mounting
+- Good lighting (many have built-in lights)
+- Clear view of the full page
+- 1080p or higher resolution
+
+**Example**: [PAKOTOO Document Camera](https://www.amazon.com/PAKOTOO-Document-Teachers-Classroom-Distance) (~$50-70)
+
+### Phone as Camera
+
+You can use your phone as a webcam with a gooseneck mount ($10-15):
+
+| Platform | App | Notes |
+|----------|-----|-------|
+| macOS + iPhone | [Continuity Camera](https://support.apple.com/en-us/102546) | Built-in, no install needed (iOS 16+, macOS Ventura+) |
+| macOS + Android | [Camo](https://reincubate.com/camo/) | Free, 1080p, install on phone + Mac |
+| Windows + Android | [DroidCam](https://www.dev47apps.com/) | Free, connect via Wi-Fi or USB |
+| Windows + iPhone | [Camo](https://reincubate.com/camo/) | Free, 1080p, install on phone + PC |
+
+<Tip>
+  Point the camera straight down at your reading surface for best results. Klaus auto-rotates portrait orientation.
+</Tip>
+
+## Platform-Specific Notes
+
+### macOS
+
+- Camera names use **AVFoundation** for friendly display names (e.g., "FaceTime HD Camera" instead of "device 0")
+- Klaus automatically detects and displays all connected cameras in the Settings dialog
+
+### Windows
+
+- Uses **DirectShow (DSHOW)** backend for camera access
+- Camera enumeration may show generic names like "USB Camera" or "Integrated Webcam"
+
+## Camera Preview
+
+Klaus displays a live camera preview in the main window at approximately 30 FPS:
+
+- The preview helps you position your document correctly
+- Frame capture for Claude happens on-demand when you ask a question
+- Preview and capture use the same resolution settings
+
+## Troubleshooting
+
+### Camera Not Detected
+
+1. **Check physical connection**: Ensure the camera is plugged in via USB
+2. **Check system permissions**: 
+   - macOS: Grant camera access in **System Settings** → **Privacy & Security** → **Camera**
+   - Windows: Grant camera access in **Settings** → **Privacy** → **Camera**
+3. **Try a different USB port**: Some USB hubs may not provide enough power
+4. **Restart Klaus**: Camera devices may not be detected if connected after Klaus starts
+
+### Wrong Camera Selected
+
+1. Open Klaus **Settings** dialog
+2. Go to **Camera** tab
+3. Select the correct camera from the dropdown
+4. Settings are applied immediately and saved to config.toml
+
+### Image is Rotated Incorrectly
+
+1. **Try `auto` mode first**: This handles most portrait/landscape cases
+2. **If auto fails**: Manually set rotation to `90`, `180`, or `270`
+3. **Test rotation**: Check the camera preview to confirm correct orientation
+
+### Poor Image Quality / Blurry Text
+
+1. **Check resolution**: Ensure you're using at least 1280×720 (720p)
+2. **Adjust camera focus**: Some document cameras have manual focus rings
+3. **Improve lighting**: Add more light or use a camera with a built-in light
+4. **Clean the lens**: Fingerprints or dust can reduce clarity
+5. **Check camera distance**: Position the camera close enough to read small text
+
+### Camera Settings Not Saved
+
+- Camera index is saved immediately when changed in the Settings dialog
+- Manual edits to config.toml require a Klaus restart to take effect
+- Check file permissions on `~/.klaus/config.toml`

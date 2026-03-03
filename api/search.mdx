@@ -1,0 +1,132 @@
+---
+title: Web Search
+description: Tavily-powered web search exposed as a Claude tool
+---
+
+## Overview
+
+Klaus integrates **Tavily** for web search, allowing Claude to verify claims, look up papers, and gather external context during conversations.
+
+## WebSearch Class
+
+The `WebSearch` class wraps the Tavily API and formats results for Claude.
+
+### Constructor
+
+```python
+from klaus.search import WebSearch
+
+searcher = WebSearch()
+```
+
+Reads the Tavily API key from `config.TAVILY_API_KEY`.
+
+### Methods
+
+#### `search(query: str, max_results: int = 5) -> str`
+
+Run a search and return formatted results as a string for Claude.
+
+<ParamField path="query" type="str" required>
+  Search query string
+</ParamField>
+
+<ParamField path="max_results" type="int" default="5">
+  Maximum number of results to return
+</ParamField>
+
+**Returns:** Formatted search results as markdown string, or error message.
+
+**Example:**
+
+```python
+from klaus.search import WebSearch
+
+searcher = WebSearch()
+results = searcher.search("neural scaling laws", max_results=3)
+print(results)
+```
+
+**Example Output:**
+
+```markdown
+**Neural Scaling Laws in Deep Learning**
+https://example.com/article
+This article discusses how model performance scales with compute, data, and parameters...
+
+---
+
+**Scaling Laws for Neural Language Models**
+https://arxiv.org/abs/...
+We study empirical scaling laws for language model performance...
+```
+
+## Tool Definition
+
+The search capability is exposed to Claude via the `TOOL_DEFINITION` dictionary:
+
+```python
+from klaus.search import TOOL_DEFINITION
+
+print(TOOL_DEFINITION)
+```
+
+**Output:**
+
+```python
+{
+    "name": "web_search",
+    "description": (
+        "Search the web to verify claims, look up referenced papers or authors, "
+        "check definitions, or find additional context. Use this whenever your "
+        "own knowledge is insufficient or uncertain."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query",
+            }
+        },
+        "required": ["query"],
+    },
+}
+```
+
+## Usage in Brain
+
+The `Brain` class in `klaus/brain.py` registers `TOOL_DEFINITION` with Claude and calls `WebSearch.search()` when Claude invokes the `web_search` tool.
+
+**Example tool use flow:**
+
+1. User asks: "Who wrote the paper on neural scaling laws?"
+2. Claude decides to invoke `web_search` tool with query `"neural scaling laws author"`
+3. `Brain` calls `WebSearch.search("neural scaling laws author")`
+4. Tavily returns results
+5. Claude receives formatted results and responds with the answer
+
+## Configuration
+
+Set your Tavily API key in `~/.klaus/config.toml`:
+
+```toml
+[api_keys]
+tavily_api_key = "tvly-..."
+```
+
+Or in `.env`:
+
+```bash
+TAVILY_API_KEY=tvly-...
+```
+
+## Implementation Details
+
+- **Search depth**: Uses `search_depth="advanced"` for higher-quality results
+- **Error handling**: Returns error message string on API failure
+- **Result formatting**: Each result includes title, URL, and content snippet, separated by `---`
+
+## Source Reference
+
+See `klaus/search.py` for the full implementation.

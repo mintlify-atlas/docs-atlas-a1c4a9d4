@@ -1,0 +1,94 @@
+---
+title: Klaus - Voice-Powered Research Assistant
+description: Ask questions about physical books and papers hands-free using vision AI and natural speech
+---
+
+## What is Klaus?
+
+Klaus is a desktop voice assistant that lets you ask questions about what you're reading hands-free. Place a page under a camera, ask a question out loud, and Klaus reads the page and reasons about your question through Claude's vision API before answering in natural speech.
+
+The experience is tuned for fast study loops: **read, ask, clarify, continue**. Klaus searches the web when it's unsure about a claim, remembers context across turns, and can write notes directly to your Obsidian vault on request.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get Klaus running in under 5 minutes with Homebrew or pipx
+  </Card>
+  <Card title="Requirements" icon="list-check" href="/requirements">
+    Hardware setup and API keys you'll need
+  </Card>
+  <Card title="Configuration" icon="gear" href="/config/overview">
+    Customize hotkeys, voice models, camera settings, and more
+  </Card>
+  <Card title="Usage" icon="book-open" href="/usage/overview">
+    Learn how to use voice activation, push-to-talk, and Obsidian notes
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Speak your question">
+    Use voice-activated recording or push-to-talk (F2 by default). Speech-to-text runs locally via Moonshine Medium—no API cost, ~300ms latency.
+  </Step>
+  <Step title="Klaus captures the page">
+    Your camera feed is sent to Claude's vision API along with your transcribed question and conversation history.
+  </Step>
+  <Step title="Claude reasons and responds">
+    Claude Sonnet 4.6 analyzes the page, searches the web if needed (Tavily), and generates a response.
+  </Step>
+  <Step title="Hear the answer">
+    OpenAI TTS streams the response sentence-by-sentence. You hear the first sentence within 2-3 seconds.
+  </Step>
+</Steps>
+
+## Key Features
+
+### Vision-Grounded Q&A
+Place a page under a camera and ask questions. Klaus reads the page before answering, giving you accurate, context-aware responses.
+
+### Hands-Free Operation
+Voice-activated recording (WebRTC VAD) or push-to-talk. No need to touch your keyboard while studying.
+
+### Local Speech-to-Text
+Speech-to-text runs entirely locally via Moonshine Medium (245M params, ~300ms latency). No transcription API costs.
+
+### Streamed Audio Responses
+OpenAI TTS streams sentence-by-sentence so playback starts before the full response is generated. End-to-end latency: 2-4 seconds.
+
+### Smart Context Management
+A hybrid query router classifies each question and decides what context (image, history, memory, notes) to include, optimizing both cost and relevance.
+
+### Web Search
+Tavily search triggers automatically when Claude is uncertain about a claim.
+
+### Obsidian Notes
+Dictate notes hands-free and Klaus writes them directly to your Obsidian vault.
+
+### Conversation Memory
+SQLite-backed session history with persistent knowledge profile.
+
+## Cost & Latency
+
+End-to-end latency from question to first spoken word: **2-4 seconds**.
+
+| Usage | Approximate Cost |
+|-------|------------------|
+| 10 questions | ~$0.05 |
+| 50 questions | ~$0.25 |
+| 100 questions/day | ~$2.50-3.50/day |
+
+<Info>
+The largest cost driver is Claude Sonnet 4.6 (vision + context window). You can change the reasoning model in `config.toml` for cheaper or more expensive options. STT is free via local Moonshine. TTS costs $0.015/min of generated audio.
+</Info>
+
+## Platform Support
+
+Klaus runs on **macOS** and **Windows** with platform-specific optimizations:
+- AVFoundation camera names (macOS)
+- DWM dark title bar (Windows)
+- Apple Keychain for secure API key storage (macOS)
+- Cross-platform global hotkeys via pynput
+
+## Open Source
+
+Klaus is MIT-licensed and available on [GitHub](https://github.com/bgigurtsis/Klaus). Contributions welcome.

@@ -1,0 +1,325 @@
+---
+title: Memory & Persistence
+description: SQLite-based persistent storage for sessions, exchanges, and knowledge profiles
+---
+
+## Overview
+
+Klaus uses **SQLite** to persist conversation history, session metadata, and user knowledge profiles. The database is stored at `~/.klaus/klaus.db`.
+
+## Memory Class
+
+The `Memory` class provides persistent storage for sessions, exchanges, and knowledge profiles.
+
+### Constructor
+
+```python
+from klaus.memory import Memory
+from pathlib import Path
+
+memory = Memory(db_path=Path("~/.klaus/klaus.db").expanduser())
+```
+
+<ParamField path="db_path" type="Path" default="config.DB_PATH">
+  Path to the SQLite database file. Defaults to `~/.klaus/klaus.db`.
+</ParamField>
+
+### Data Classes
+
+#### Session
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Session:
+    id: str
+    title: str
+    created_at: float
+    updated_at: float
+    notes_file: str | None = None
+```
+
+#### ExchangeRecord
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ExchangeRecord:
+    id: str
+    session_id: str
+    user_text: str
+    assistant_text: str
+    image_hash: str | None
+    searches_json: str
+    created_at: float
+```
+
+## Session Methods
+
+### `create_session(title: str) -> Session`
+
+Create a new session with a title.
+
+<ParamField path="title" type="str" required>
+  Human-readable session title
+</ParamField>
+
+**Returns:** New `Session` object with generated UUID.
+
+**Example:**
+
+```python
+from klaus.memory import Memory
+
+memory = Memory()
+session = memory.create_session("Reading Neural Scaling Laws")
+print(session.id, session.title)
+```
+
+### `list_sessions() -> list[Session]`
+
+List all sessions, ordered by `updated_at` (most recent first).
+
+**Returns:** List of `Session` objects.
+
+**Example:**
+
+```python
+from klaus.memory import Memory
+
+memory = Memory()
+sessions = memory.list_sessions()
+
+for s in sessions:
+    print(f"{s.title} (updated {s.updated_at})")
+```
+
+### `update_session_title(session_id: str, title: str) -> None`
+
+Update a session's title and `updated_at` timestamp.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+<ParamField path="title" type="str" required>
+  New title
+</ParamField>
+
+### `delete_session(session_id: str) -> None`
+
+Delete a session and all its exchanges.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+### `get_session_notes_file(session_id: str) -> str | None`
+
+Return the notes file path for a session, or `None` if not set.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+**Returns:** Relative notes file path or `None`.
+
+### `set_session_notes_file(session_id: str, notes_file: str | None) -> None`
+
+Persist the notes file path for a session.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+<ParamField path="notes_file" type="str | None" required>
+  Relative notes file path or `None` to clear
+</ParamField>
+
+## Exchange Methods
+
+### `save_exchange(session_id: str, user_text: str, assistant_text: str, image_base64: str | None = None, searches: list[dict] | None = None) -> ExchangeRecord`
+
+Save a user-assistant exchange to the database.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+<ParamField path="user_text" type="str" required>
+  User's question or input
+</ParamField>
+
+<ParamField path="assistant_text" type="str" required>
+  Assistant's response
+</ParamField>
+
+<ParamField path="image_base64" type="str | None" default="None">
+  Base64-encoded image data (if applicable)
+</ParamField>
+
+<ParamField path="searches" type="list[dict] | None" default="None">
+  List of search result dictionaries
+</ParamField>
+
+**Returns:** New `ExchangeRecord` with generated UUID.
+
+**Example:**
+
+```python
+from klaus.memory import Memory
+
+memory = Memory()
+session = memory.create_session("Research Session")
+
+exchange = memory.save_exchange(
+    session_id=session.id,
+    user_text="What are neural scaling laws?",
+    assistant_text="Neural scaling laws describe how model performance scales...",
+    searches=[{"query": "neural scaling laws", "results": 5}]
+)
+
+print(f"Saved exchange {exchange.id}")
+```
+
+### `get_exchanges(session_id: str) -> list[ExchangeRecord]`
+
+Get all exchanges for a session, ordered by creation time (oldest first).
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+**Returns:** List of `ExchangeRecord` objects.
+
+### `count_exchanges(session_id: str | None = None) -> int`
+
+Count exchanges in a session, or all exchanges if `session_id` is `None`.
+
+<ParamField path="session_id" type="str | None" default="None">
+  Session UUID, or `None` to count all exchanges
+</ParamField>
+
+**Returns:** Exchange count.
+
+## Knowledge Profile Methods
+
+### `update_knowledge(topic: str, summary: str, comfort_level: str = "learning") -> None`
+
+Update or insert a knowledge profile entry for a topic.
+
+<ParamField path="topic" type="str" required>
+  Topic name (e.g., "neural scaling laws")
+</ParamField>
+
+<ParamField path="summary" type="str" required>
+  Brief summary of user's knowledge on this topic
+</ParamField>
+
+<ParamField path="comfort_level" type="str" default="learning">
+  User's comfort level: `"beginner"`, `"learning"`, or `"expert"`
+</ParamField>
+
+**Note:** This method is defined but **not currently called** in the Klaus codebase. The `knowledge_profile` table remains empty.
+
+### `get_knowledge_summary(limit: int = 20) -> str`
+
+Return a text summary of the user's knowledge profile for inclusion in prompts.
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of topics to include
+</ParamField>
+
+**Returns:** Formatted markdown string, or empty string if no knowledge entries exist.
+
+**Example output:**
+
+```markdown
+User's knowledge profile:
+- neural scaling laws (learning): Understands basic concepts of how model performance scales
+- transformers (expert): Deep understanding of attention mechanisms and architecture
+```
+
+### `get_recent_exchanges_summary(session_id: str, limit: int = 5) -> str`
+
+Return a brief summary of recent exchanges for context.
+
+<ParamField path="session_id" type="str" required>
+  Session UUID
+</ParamField>
+
+<ParamField path="limit" type="int" default="5">
+  Maximum number of recent exchanges to include
+</ParamField>
+
+**Returns:** Formatted summary string.
+
+**Example output:**
+
+```markdown
+Recent exchanges in this session:
+Q: What are neural scaling laws?
+A: Neural scaling laws describe how model performance scales predictably with compute, data, and parameters...
+Q: Who discovered them?
+A: The seminal work on neural scaling laws was published by researchers at OpenAI in 2020...
+```
+
+## Database Schema
+
+### `sessions` table
+
+```sql
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    notes_file TEXT
+);
+```
+
+### `exchanges` table
+
+```sql
+CREATE TABLE exchanges (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_text TEXT NOT NULL,
+    assistant_text TEXT NOT NULL,
+    image_hash TEXT,
+    searches_json TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+
+CREATE INDEX idx_exchanges_session ON exchanges(session_id, created_at);
+```
+
+### `knowledge_profile` table
+
+```sql
+CREATE TABLE knowledge_profile (
+    id TEXT PRIMARY KEY,
+    topic TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    comfort_level TEXT NOT NULL DEFAULT 'beginner',
+    first_seen REAL NOT NULL,
+    last_seen REAL NOT NULL
+);
+
+CREATE INDEX idx_knowledge_topic ON knowledge_profile(topic);
+```
+
+## Implementation Details
+
+- **Thread-safe**: Uses `check_same_thread=False` for multi-threaded access.
+- **Row factory**: Uses `sqlite3.Row` for dictionary-like row access.
+- **Automatic migration**: The `notes_file` column is added to existing databases via `_migrate_sessions_notes_file()`.
+- **Image hashing**: Images are hashed using SHA256 (truncated to 16 chars) to detect duplicate page views.
+- **Search tracking**: Web search queries and result counts are stored as JSON in the `searches_json` column.
+
+## Source Reference
+
+See `klaus/memory.py` for the full implementation.

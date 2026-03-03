@@ -1,0 +1,137 @@
+---
+title: Using Klaus Day-to-Day
+description: A guide to your daily workflow with Klaus - from asking questions to taking notes
+---
+
+Klaus is designed for fast study loops: read, ask, clarify, continue. This page covers how to use Klaus in your daily research workflow.
+
+## The Basic Workflow
+
+<Steps>
+  <Step title="Position your reading material">
+    Place a page from your book or paper under your document camera. Klaus will automatically detect and rotate the image if needed.
+  </Step>
+  
+  <Step title="Ask your question">
+    Either speak naturally (voice-activated mode) or hold your hotkey (push-to-talk mode) and ask your question.
+  </Step>
+  
+  <Step title="Klaus analyzes the page">
+    Klaus captures the page image, reads it using Claude's vision API, and reasons about your question in context.
+  </Step>
+  
+  <Step title="Hear the answer">
+    Klaus responds aloud within 2-4 seconds. The answer streams sentence-by-sentence so you hear the first sentence immediately.
+  </Step>
+</Steps>
+
+## Understanding the Status Bar
+
+The bottom status bar shows Klaus's current state:
+
+- **● Idle** (gray) - Push-to-talk mode, waiting for you to hold the hotkey
+- **● Ready** (green) - Voice-activated mode, listening for speech
+- **● Listening** (blue) - Actively recording your question
+- **● Thinking** (yellow) - Processing your question and the page
+- **● Speaking** (green) - Playing back the answer
+
+The right side shows your session statistics (e.g., "5 Q&A this session").
+
+## What Klaus Sees
+
+When you ask a question, Klaus can see:
+
+- **The current page** under your camera (captured as a high-resolution image)
+- **Your conversation history** from the current session
+- **Previous notes** you've saved to your Obsidian vault (if configured)
+- **Web search results** when Klaus is uncertain about a claim
+
+The camera preview in the top-right shows exactly what Klaus sees.
+
+## Asking Effective Questions
+
+Klaus is tuned for precision and brevity. See [Asking Questions Effectively](/usage/asking-questions) for detailed guidance on:
+
+- Getting concise vs. detailed answers
+- Referencing specific parts of the page
+- When Klaus searches the web automatically
+- Following up on previous answers
+
+## Taking Notes
+
+Klaus can write notes directly to your Obsidian vault as you speak. See [Obsidian Integration](/usage/obsidian-integration) for:
+
+- Setting up your vault path
+- Telling Klaus which file to use
+- Dictating notes hands-free
+- Note formatting and structure
+
+## Managing Sessions
+
+Each conversation lives in a session. Klaus automatically creates a session called "Untitled Session" when you first launch.
+
+- **Switch sessions** using the left sidebar - click any session to load its history
+- **Create a new session** with the "+" button at the top of the sidebar
+- **Rename sessions** by right-clicking and selecting "Rename"
+- **Delete sessions** by right-clicking and selecting "Delete"
+
+See [Managing Sessions](/usage/sessions) for more details.
+
+## Keyboard Shortcuts
+
+Klaus supports both global hotkeys (work anywhere) and in-app hotkeys (work when the Klaus window is focused):
+
+### Default Hotkeys
+
+| Action | macOS | Windows |
+|--------|-------|--------|
+| Push-to-talk | `§` (section key) | `F2` |
+| Toggle mode | `§` (section key) | `F3` |
+
+<Note>
+  On macOS, F-keys trigger system actions by default (F3 opens Mission Control). Either:
+  - Press `Fn` + the F-key
+  - Enable "Use F1, F2, etc. keys as standard function keys" in System Settings → Keyboard
+  - Configure a different key in `~/.klaus/config.toml`
+</Note>
+
+### In-App Hotkeys
+
+When the Klaus window is focused, the hotkeys work without any OS permissions. This is useful if you prefer not to grant Accessibility permission on macOS.
+
+### Global Hotkeys
+
+Global hotkeys work even when Klaus is in the background. On macOS, this requires granting Accessibility permission to your terminal application.
+
+<Warning>
+  On macOS 15.26+ with Python 3.14, global hotkeys are automatically disabled due to a known crash. Use in-app hotkeys instead, or use Python 3.13 for stable global hotkey support.
+</Warning>
+
+## Stopping Playback
+
+If Klaus is speaking and you want to interrupt:
+
+- Click the **Stop** button that appears in the status bar
+- In voice-activated mode, just start speaking - Klaus will stop and listen
+- In push-to-talk mode, hold your hotkey to interrupt
+
+## Replaying Previous Answers
+
+Every exchange in your session history has a replay button (▶). Click it to hear Klaus speak that answer again without re-processing the question.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Voice Modes" icon="microphone" href="/usage/voice-modes">
+    Choose between voice-activated and push-to-talk
+  </Card>
+  <Card title="Asking Questions" icon="message-question" href="/usage/asking-questions">
+    Learn how to get the best answers from Klaus
+  </Card>
+  <Card title="Obsidian Integration" icon="note" href="/usage/obsidian-integration">
+    Save notes hands-free while you read
+  </Card>
+  <Card title="Sessions" icon="folder" href="/usage/sessions">
+    Organize your research conversations
+  </Card>
+</CardGroup>

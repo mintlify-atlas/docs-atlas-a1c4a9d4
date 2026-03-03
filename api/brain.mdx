@@ -1,0 +1,188 @@
+---
+title: 'Brain'
+description: 'Manages conversation with Claude, including vision and tool use'
+---
+
+## Brain
+
+The `Brain` class orchestrates interactions with Claude's API, handling vision input, tool use, conversation history, and intelligent query routing.
+
+### Constructor
+
+```python
+Brain(notes: NotesManager | None = None)
+```
+
+<ParamField path="notes" type="NotesManager | None" default="None">
+  Optional notes manager for Obsidian integration
+</ParamField>
+
+**Location:** brain.py:50
+
+### Methods
+
+#### ask()
+
+Send a question to Claude and return the exchange.
+
+```python
+def ask(
+    question: str,
+    image_base64: str | None = None,
+    memory_context: str | None = None,
+    notes_context: str | None = None,
+    on_sentence: Callable[[str], None] | None = None,
+    route_decision: RouteDecision | None = None,
+) -> Exchange:
+```
+
+<ParamField path="question" type="str" required>
+  The user's question text
+</ParamField>
+
+<ParamField path="image_base64" type="str | None" default="None">
+  Base64-encoded JPEG image from document camera
+</ParamField>
+
+<ParamField path="memory_context" type="str | None" default="None">
+  Context from previous sessions (SQLite knowledge profile)
+</ParamField>
+
+<ParamField path="notes_context" type="str | None" default="None">
+  Context from Obsidian notes
+</ParamField>
+
+<ParamField path="on_sentence" type="Callable[[str], None] | None" default="None">
+  Callback invoked with each complete sentence during streaming
+</ParamField>
+
+<ParamField path="route_decision" type="RouteDecision | None" default="None">
+  Routing policy controlling context inclusion and sentence caps
+</ParamField>
+
+<ResponseField name="exchange" type="Exchange">
+  Contains user text, assistant response, image, searches performed, and notes change flag
+</ResponseField>
+
+**Location:** brain.py:80-225
+
+Route decisions control whether image/history/memory/notes are sent, and optionally enforce a sentence cap for concise definitions. The method handles tool use (web search, note saving) through iterative rounds with Claude.
+
+#### decide_route()
+
+Classify the question into a context routing policy.
+
+```python
+def decide_route(question: str) -> RouteDecision:
+```
+
+<ParamField path="question" type="str" required>
+  The user's question to classify
+</ParamField>
+
+<ResponseField name="route" type="RouteDecision">
+  Policy controlling context usage, history depth, and sentence limits
+</ResponseField>
+
+**Location:** brain.py:74-78
+
+If `ENABLE_QUERY_ROUTER` is false in config, returns a default route decision.
+
+#### reload_clients()
+
+Recreate API clients to pick up key changes from `config.reload()`.
+
+```python
+def reload_clients() -> None:
+```
+
+**Location:** brain.py:59-63
+
+#### set_notes_manager()
+
+Update the notes manager and rebuild available tools.
+
+```python
+def set_notes_manager(notes: NotesManager | None) -> None:
+```
+
+**Location:** brain.py:65-67
+
+#### clear_history()
+
+Clear all conversation history.
+
+```python
+def clear_history() -> None:
+```
+
+**Location:** brain.py:412
+
+#### get_history_for_display()
+
+Reconstruct exchanges from raw history for display purposes.
+
+```python
+def get_history_for_display() -> list[Exchange]:
+```
+
+**Location:** brain.py:415-442
+
+#### trim_history()
+
+Keep only the last N user/assistant turn pairs to manage context size.
+
+```python
+def trim_history(max_turns: int = 20) -> None:
+```
+
+**Location:** brain.py:444-448
+
+#### limit_sentences() (static)
+
+Hard-limit text to at most `max_sentences` sentences.
+
+```python
+@staticmethod
+def limit_sentences(text: str, max_sentences: int | None) -> str:
+```
+
+**Location:** brain.py:259-269
+
+---
+
+## Exchange
+
+A dataclass representing a single Q&A turn in a conversation.
+
+```python
+@dataclass
+class Exchange:
+    user_text: str
+    assistant_text: str
+    image_base64: str | None = None
+    searches: list[dict] = field(default_factory=list)
+    notes_file_changed: bool = False
+```
+
+<ResponseField name="user_text" type="str">
+  The user's question
+</ResponseField>
+
+<ResponseField name="assistant_text" type="str">
+  Claude's response
+</ResponseField>
+
+<ResponseField name="image_base64" type="str | None">
+  Base64-encoded camera image if included
+</ResponseField>
+
+<ResponseField name="searches" type="list[dict]">
+  List of web searches performed during this turn
+</ResponseField>
+
+<ResponseField name="notes_file_changed" type="bool">
+  Whether notes were modified during this exchange
+</ResponseField>
+
+**Location:** brain.py:36-44

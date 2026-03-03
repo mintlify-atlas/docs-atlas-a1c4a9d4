@@ -1,0 +1,212 @@
+---
+title: 'API Keys'
+description: 'Obtain and configure API keys for Anthropic, OpenAI, and Tavily'
+---
+
+## Overview
+
+Klaus requires API keys from three providers to function:
+
+- **Anthropic** — Vision and reasoning via Claude
+- **OpenAI** — Text-to-speech
+- **Tavily** — Web search (free tier available)
+
+The setup wizard will prompt you for these keys on first launch. On macOS, keys are stored securely in Apple Keychain. On Windows, they're stored in `~/.klaus/config.toml`.
+
+## Getting Your API Keys
+
+### Anthropic (Claude)
+
+**Purpose:** Vision analysis and reasoning
+
+**Model used:** `claude-sonnet-4-6`
+
+<Steps>
+  <Step title="Sign up or log in">
+    Go to [console.anthropic.com](https://console.anthropic.com/settings/keys)
+  </Step>
+
+  <Step title="Create an API key">
+    - Navigate to **Settings > API Keys**
+    - Click **Create Key**
+    - Copy the key immediately (it won't be shown again)
+  </Step>
+
+  <Step title="Add credits">
+    Anthropic requires prepaid credits. Go to **Settings > Billing** and add a balance.
+    
+    <Note>
+      **Estimated costs:**
+      - 10 questions: ~$0.05
+      - 50 questions: ~$0.25
+      - 100 questions/day: ~$2.50-3.50/day
+    </Note>
+  </Step>
+</Steps>
+
+**Key format:** Starts with `sk-ant-`
+
+---
+
+### OpenAI (Text-to-Speech)
+
+**Purpose:** Convert Claude's text responses to speech
+
+**Model used:** `gpt-4o-mini-tts`
+
+<Steps>
+  <Step title="Sign up or log in">
+    Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+  </Step>
+
+  <Step title="Create an API key">
+    - Click **Create new secret key**
+    - Give it a name (e.g., "Klaus")
+    - Copy the key immediately
+  </Step>
+
+  <Step title="Add credits (if needed)">
+    New accounts may have free trial credits. Go to **Settings > Billing** to add more.
+    
+    <Note>
+      **TTS costs:** $0.015 per minute of generated audio (~$0.01-0.02 per response)
+    </Note>
+  </Step>
+</Steps>
+
+**Key format:** Starts with `sk-proj-` or `sk-`
+
+---
+
+### Tavily (Web Search)
+
+**Purpose:** Search the web when Klaus is uncertain about a claim
+
+**Free tier:** 1,000 searches per month
+
+<Steps>
+  <Step title="Sign up">
+    Go to [app.tavily.com/home](https://app.tavily.com/home)
+  </Step>
+
+  <Step title="Get your API key">
+    - After signing in, your API key is displayed on the home page
+    - Copy it for use in Klaus
+  </Step>
+</Steps>
+
+**Key format:** Starts with `tvly-`
+
+<Note>
+  **Free tier limits:**
+  
+  The free tier includes 1,000 searches per month, which is typically sufficient for most users. Klaus only triggers search when Claude is uncertain, not on every question.
+</Note>
+
+---
+
+## Entering Keys in Klaus
+
+### During First Run
+
+The setup wizard (step 2) will prompt you to enter all three keys:
+
+1. Launch `klaus`
+2. On the "API Keys" step, paste each key into the corresponding field
+3. Klaus validates the format (prefix + length) before proceeding
+4. Click **Next** to continue
+
+<Warning>
+  Keys are validated by format only, not with live API calls. If you enter an invalid key, Klaus will fail when trying to use the API later.
+</Warning>
+
+### After Setup
+
+To update API keys after the initial setup:
+
+1. Open Klaus
+2. Click the **settings** button (gear icon)
+3. Go to the **API Keys** tab
+4. Update any keys as needed
+5. Click **Save**
+
+Klaus will reload the API clients with the new keys.
+
+---
+
+## Key Storage
+
+### macOS (Keychain)
+
+API keys are stored securely in **Apple Keychain**. Klaus resolves keys in this order:
+
+1. Environment variable (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`)
+2. Apple Keychain
+3. Legacy `~/.klaus/config.toml` under `[api_keys]` (fallback)
+
+**Migration:** If you have plaintext keys in `config.toml`, Klaus automatically migrates them to Keychain on first launch.
+
+### Windows (config.toml)
+
+API keys are stored in `~/.klaus/config.toml` under the `[api_keys]` section:
+
+```toml
+[api_keys]
+anthropic = "sk-ant-..."
+openai = "sk-proj-..."
+tavily = "tvly-..."
+```
+
+Klaus also checks for environment variables and `.env` files as fallbacks.
+
+---
+
+## Using Environment Variables
+
+If you prefer not to store keys in config files, set environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-proj-..."
+export TAVILY_API_KEY="tvly-..."
+```
+
+Or create a `.env` file in `~/.klaus/`:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-proj-...
+TAVILY_API_KEY=tvly-...
+```
+
+Klaus loads `.env` automatically via `python-dotenv`.
+
+---
+
+## Troubleshooting
+
+### "Invalid API key" errors
+
+- Verify the key format matches the expected prefix
+- Check for extra spaces or line breaks when pasting
+- Ensure you copied the entire key
+- Regenerate the key from the provider's console
+
+### Keys not persisting
+
+- On macOS, check Keychain Access for entries named `klaus_anthropic_key`, `klaus_openai_key`, `klaus_tavily_key`
+- On Windows, verify `~/.klaus/config.toml` contains the `[api_keys]` section
+- Ensure Klaus has write permissions to `~/.klaus/`
+
+### Quota exceeded errors
+
+- Check your billing dashboard at the provider's console
+- Add credits or upgrade your plan
+- For Tavily, monitor your monthly search usage
+
+---
+
+## Next Steps
+
+- [Camera Setup](/setup/camera-setup) - Configure your camera hardware
+- [First Run](/setup/first-run) - Complete the setup wizard

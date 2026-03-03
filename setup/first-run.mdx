@@ -1,0 +1,295 @@
+---
+title: 'First Run Setup'
+description: 'Complete the setup wizard to configure Klaus'
+---
+
+## Overview
+
+When you launch Klaus for the first time, a 7-step setup wizard guides you through initial configuration. The wizard ensures all required components are configured before you start using Klaus.
+
+## Setup Wizard Steps
+
+### Step 1: Welcome
+
+The welcome screen introduces Klaus and explains what the setup wizard will do.
+
+Click **Next** to begin.
+
+---
+
+### Step 2: API Keys
+
+Enter your API keys for the three required services:
+
+<Steps>
+  <Step title="Anthropic API Key">
+    Paste your Anthropic key (starts with `sk-ant-`)
+    
+    Get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+  </Step>
+
+  <Step title="OpenAI API Key">
+    Paste your OpenAI key (starts with `sk-proj-` or `sk-`)
+    
+    Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+  </Step>
+
+  <Step title="Tavily API Key">
+    Paste your Tavily key (starts with `tvly-`)
+    
+    Get one at [app.tavily.com/home](https://app.tavily.com/home)
+  </Step>
+</Steps>
+
+<Note>
+  Keys are validated by format (prefix + length), not by live API calls. See [API Keys](/setup/api-keys) for detailed instructions.
+</Note>
+
+**Storage:**
+- **macOS:** Keys are saved to Apple Keychain
+- **Windows:** Keys are saved to `~/.klaus/config.toml`
+
+---
+
+### Step 3: Camera Selection
+
+Klaus lists all detected cameras. Select the camera you'll use to capture pages.
+
+**Preview:** A live camera feed shows what Klaus will see. Ensure your reading surface is visible.
+
+**Tips:**
+- Use a USB document camera or phone on a gooseneck mount
+- Position the camera directly above your reading surface
+- Ensure the entire page fits in the frame
+
+See [Camera Setup](/setup/camera-setup) for hardware recommendations.
+
+---
+
+### Step 4: Microphone Selection
+
+Klaus lists all available microphones. Select the one you'll use for voice input.
+
+**Test:** Speak into the microphone. The audio level meter shows input volume in real-time.
+
+**Options:**
+- **System Default** (recommended): Uses your OS default microphone
+- **Specific Device**: Choose a particular mic if you have multiple
+
+<Note>
+  Klaus supports two input modes:
+  - **Voice-activated** (default): Detects when you start speaking
+  - **Push-to-talk**: Hold a key (default F2) to record
+  
+  You can toggle between modes after setup.
+</Note>
+
+---
+
+### Step 5: Voice Model Download
+
+Klaus uses **Moonshine** for local speech-to-text. The setup wizard downloads the model on first run.
+
+**Model:** Moonshine Medium (245M parameters, ~300ms latency)
+
+**Download size:** ~500 MB
+
+<Steps>
+  <Step title="Click 'Download Model'">
+    The wizard downloads and caches the model to `~/.cache/moonshine/`
+  </Step>
+
+  <Step title="Wait for completion">
+    A progress bar shows download status. This may take a few minutes depending on your connection.
+  </Step>
+
+  <Step title="Proceed">
+    Once the download completes, click **Next**.
+  </Step>
+</Steps>
+
+<Note>
+  **Local STT**
+  
+  Moonshine runs entirely on your device with no API calls. This means:
+  - No per-query STT cost
+  - ~300ms transcription latency
+  - Works offline (after initial download)
+</Note>
+
+---
+
+### Step 6: About You (Optional)
+
+Klaus can personalize responses based on your background. This step is optional but recommended for better context.
+
+**What to include:**
+- Your field of study or profession
+- Academic level (undergraduate, PhD, researcher, etc.)
+- Any specific interests or research areas
+
+**Example:**
+
+```
+I'm a PhD student in computational neuroscience studying 
+reinforcement learning in the basal ganglia.
+```
+
+**How it's used:**
+- Klaus includes your background in the system prompt sent to Claude
+- Claude tailors explanations to your level and domain
+- You can update this later in settings
+
+**Obsidian Integration (Optional):**
+
+If you use Obsidian for notes, you can also configure your vault path here:
+
+1. Click **Browse**
+2. Select your Obsidian vault folder
+3. Klaus will write notes directly to this vault when you ask it to
+
+<Note>
+  Both background and vault path can be updated later in **Settings > Profile**.
+</Note>
+
+---
+
+### Step 7: Done
+
+Setup is complete! Click **Finish** to launch Klaus.
+
+The main window opens with:
+- Live camera preview
+- Voice input controls
+- Chat interface
+
+---
+
+## After Setup
+
+### First Question
+
+To test Klaus:
+
+1. Place a book or paper under your camera
+2. Click the microphone button or press F2 (push-to-talk)
+3. Ask a question about the page
+4. Klaus captures the page, sends it to Claude, and responds aloud
+
+**Example questions:**
+- "What is this equation describing?"
+- "Summarize this paragraph"
+- "What does the author mean by [term]?"
+
+### Input Modes
+
+Klaus supports two ways to ask questions:
+
+- **Voice-activated (default):** Start speaking and Klaus detects your voice automatically via WebRTC VAD. After a brief silence, it processes your question.
+- **Push-to-talk:** Hold the PTT key (default F2) to record, release to send.
+
+Toggle between modes with:
+- **macOS:** `§` key
+- **Windows:** `F3` key
+- Or use the mode button in the UI
+
+### Adjusting Settings
+
+Click the settings button (gear icon) to:
+- Update API keys
+- Switch camera or microphone
+- Edit your background and Obsidian vault path
+- Change voice, TTS speed, and other preferences
+
+Most settings apply immediately. Some (like hotkeys, VAD sensitivity, STT model) require an app restart.
+
+### Configuration File
+
+All settings are stored in `~/.klaus/config.toml`. You can edit this file directly for advanced configuration:
+
+```toml
+[core]
+hotkey = "F2"                # Push-to-talk key
+toggle_key = "§"             # Mode toggle key (macOS)
+input_mode = "voice_activation"
+
+[audio]
+mic_index = -1               # -1 = system default
+vad_sensitivity = 3          # 0-3, higher = more noise filtering
+vad_silence_timeout = 1.5    # Seconds before finalizing
+
+[camera]
+camera_index = 0
+camera_width = 1920
+camera_height = 1080
+camera_rotation = "auto"
+
+[tts]
+voice = "cedar"
+tts_speed = 1.0              # 0.25 to 4.0
+
+[stt]
+stt_moonshine_model = "medium"  # Options: tiny, small, medium
+stt_moonshine_language = "en"
+
+[logging]
+log_level = "INFO"           # DEBUG, INFO, WARNING, ERROR
+```
+
+Restart Klaus after editing `config.toml`.
+
+---
+
+## Troubleshooting
+
+### Setup wizard doesn't appear
+
+If the wizard doesn't launch on first run:
+- Delete `~/.klaus/config.toml`
+- Restart Klaus
+- The wizard will run again
+
+### Camera preview is black
+
+- Check that the camera is plugged in
+- Verify camera permissions (macOS: System Settings > Privacy & Security > Camera)
+- Try a different camera from the dropdown
+
+### Microphone test shows no input
+
+- Check that the microphone is selected as input in your OS
+- Verify microphone permissions (macOS: System Settings > Privacy & Security > Microphone)
+- Try selecting "System Default" in the wizard
+
+### Model download fails
+
+- Check your internet connection
+- Ensure you have ~500 MB free disk space
+- Try again (the download resumes from where it left off)
+
+### API key errors during use
+
+- Verify the keys are correct in Settings > API Keys
+- Check that you have credits/quota at each provider's console
+- See [API Keys](/setup/api-keys) for troubleshooting
+
+---
+
+## Re-running Setup
+
+To reset Klaus and re-run the setup wizard:
+
+1. Close Klaus
+2. Delete or rename `~/.klaus/config.toml`
+3. Optionally delete `~/.klaus/klaus.db` to clear session history
+4. Restart Klaus
+
+The setup wizard will launch again.
+
+---
+
+## Next Steps
+
+- [Usage Guide](#) - Learn how to use Klaus effectively
+- [Configuration](#) - Advanced configuration options
+- [Obsidian Integration](#) - Set up note-taking

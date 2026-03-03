@@ -1,0 +1,205 @@
+---
+title: macOS Permissions
+description: Configuring Accessibility and input monitoring permissions for Klaus
+---
+
+## Overview
+
+Klaus requires specific macOS permissions to enable global hotkeys (push-to-talk and mode toggle that work when Klaus is not focused). Without these permissions, Klaus still functions fully using in-app hotkeys when the window is focused.
+
+## Accessibility Permission
+
+<Warning>
+**When is this required?**
+
+Accessibility permission is needed for **global hotkeys** only. If you use the Klaus window's in-app hotkeys or the on-screen buttons, you can deny this permission without losing functionality.
+</Warning>
+
+### Grant Accessibility Permission
+
+On first launch, macOS prompts you to grant your terminal Accessibility (input monitoring) permission:
+
+1. **During first launch**: Click "Open System Settings" when prompted
+2. Navigate to: **System Settings > Privacy & Security > Accessibility**
+3. Ensure your terminal app is checked:
+   - **Terminal.app** (if running from built-in Terminal)
+   - **iTerm** (if using iTerm2)
+   - **VS Code** (if running from integrated terminal)
+4. If not listed, click **+** and add your terminal app
+5. Restart Klaus
+
+### Permission Denied - What Still Works
+
+If you deny Accessibility permission:
+
+- ✅ **In-app hotkeys** work when Klaus window is focused
+- ✅ **On-screen buttons** for push-to-talk and mode toggle
+- ✅ All other features (camera, STT, TTS, Claude API)
+- ❌ **Global hotkeys** (F2, F3, §) won't work when Klaus is in background
+
+Reference: `README.md:107`, `main.py:436-509`
+
+## Global Hotkey Listener
+
+### How It Works
+
+Klaus uses `pynput` for global hotkeys. The listener:
+
+- Runs in a daemon thread
+- Starts gracefully (logs a warning on failure, doesn't crash)
+- Automatically disables on known crash combinations (macOS 26 + Python 3.14)
+
+### Listener Start Failure
+
+If you see this warning:
+```
+Global hotkey listener failed to start: <error>. In-app hotkeys still work when the Klaus window is focused.
+```
+
+**Causes:**
+1. **No Accessibility permission** - Grant as described above
+2. **macOS 26 + Python 3.14** - Use Python 3.13 instead
+3. **Terminal app not trusted** - Add terminal to Accessibility list
+
+**Force enable (at your own risk):**
+```bash
+export KLAUS_FORCE_GLOBAL_HOTKEYS=1
+klaus
+```
+
+<Warning>
+Forcing global hotkeys on macOS 26 + Python 3.14 can cause crashes due to `pynput`/Carbon keyboard API issues.
+</Warning>
+
+Reference: `main.py:11-43`, `main.py:493-509`
+
+## F-Key System Actions Conflict
+
+<Accordion title="F3 triggers Mission Control instead of Klaus">
+macOS binds F-keys to system functions by default:
+- F3 = Mission Control
+- F4 = Launchpad  
+- F5/F6 = Brightness
+- F7-F9 = Media controls
+
+**Solutions:**
+
+1. **Press Fn+key** (e.g., Fn+F3 for toggle)
+2. **Enable standard function keys**:
+   - System Settings > Keyboard
+   - Enable "Use F1, F2, etc. keys as standard function keys"
+3. **Change Klaus hotkeys** in `~/.klaus/config.toml`:
+   ```toml
+   hotkey = "F2"      # Push-to-talk (default)
+   toggle_key = "F4"  # Change from F3 to F4
+   ```
+
+Reference: `main.py:511-517`
+</Accordion>
+
+## ISO Keyboard Shifted Keys
+
+<Accordion title="§ key not working on my keyboard">
+Klaus maps shifted-key variants for macOS ISO keyboards:
+
+- Unshifted: `§` (section sign)
+- Shifted: `±` (plus-minus)
+
+If you press Shift+§ (which types `±`), Klaus automatically resolves it to the base `§` key.
+
+**For macOS with same PTT and toggle key:**
+- **Unshifted press**: Push-to-talk
+- **Shifted press**: Toggle mode
+
+Reference: `main.py:45-99`, `main.py:102-126`
+</Accordion>
+
+## Homebrew Permissions
+
+<Accordion title="Homebrew Klaus and terminal permissions">
+When running Klaus via Homebrew (`brew install klaus`), the permission prompt asks for your **terminal app**, not Klaus itself.
+
+This is because Homebrew installs a Python script wrapper. The terminal is the parent process executing Klaus.
+
+**Which terminal to authorize:**
+- If you run `klaus` from **Terminal.app**: Authorize Terminal
+- If you run from **iTerm2**: Authorize iTerm  
+- If you run from **VS Code integrated terminal**: Authorize Visual Studio Code
+</Accordion>
+
+## Verifying Permissions
+
+<Accordion title="How do I check if permissions are granted?">
+1. Open **System Settings > Privacy & Security > Accessibility**
+2. Look for your terminal app in the list
+3. Ensure the checkbox is **enabled**
+4. If you toggled it while Klaus was running, **restart Klaus**
+
+You can also check Klaus logs:
+```bash
+klaus 2>&1 | grep -i "hotkey\|accessibility"
+```
+
+If global hotkeys started successfully, you'll see:
+```
+Global hotkey listener started (ptt=F2, toggle=§)
+```
+
+If disabled due to platform issues:
+```
+Global hotkeys disabled on macOS <version> with Python <version> due to a known pynput crash.
+```
+</Accordion>
+
+## Platform-Specific Behavior
+
+### macOS 26 + Python 3.14 Crash Path
+
+<Warning>
+**Known Issue**: This specific combination triggers a segfault in `pynput`'s Carbon keyboard APIs.
+
+**Auto-mitigation**: Klaus detects this configuration and:
+1. Skips importing `pynput` entirely (avoids intermittent ctypes segfaults)
+2. Disables global hotkey listener
+3. Keeps in-app Qt hotkeys active
+4. Logs a warning with workaround instructions
+
+**Recommended fix**: Use Python 3.13:
+```bash
+brew install python@3.13
+pipx reinstall klaus-assistant --python python3.13
+```
+</Warning>
+
+Reference: `main.py:11-33`, `main.py:444-460`
+
+### Why Does Klaus Import pynput Conditionally?
+
+On the crash-prone platform combination, Klaus uses a guard at import time:
+
+```python
+if not _should_disable_global_hotkeys():
+    from pynput.keyboard import Key, KeyCode, Listener as KeyboardListener
+    _PYNPUT_AVAILABLE = True
+else:
+    Key = KeyCode = KeyboardListener = None
+    _PYNPUT_AVAILABLE = False
+```
+
+This prevents even loading the `pynput` library when it's known to segfault, ensuring Klaus stays stable.
+
+Reference: `main.py:36-43`
+
+## Troubleshooting Checklist
+
+If global hotkeys aren't working:
+
+- [ ] macOS Accessibility permission granted to terminal app
+- [ ] Terminal app restarted after granting permission
+- [ ] Klaus restarted after granting permission  
+- [ ] Not on macOS 26 + Python 3.14 (or `KLAUS_FORCE_GLOBAL_HOTKEYS=1` set)
+- [ ] F-key not bound to system action (or using Fn+key)
+- [ ] Hotkey configured correctly in `~/.klaus/config.toml`
+- [ ] Check logs for "Global hotkey listener started" message
+
+**Still not working?** Use in-app hotkeys or on-screen buttons as a workaround.
